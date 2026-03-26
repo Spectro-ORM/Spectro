@@ -154,9 +154,16 @@ extension DatabaseIntegrationTests {
                     }
                     Issue.record("Expected invalidSchema error")
                 } catch let error as SpectroError {
-                    guard case .invalidSchema = error else {
+                    switch error {
+                    case .invalidSchema:
+                        break // expected
+                    case .transactionFailed(let underlying) where underlying is SpectroError:
+                        guard case .invalidSchema = underlying as? SpectroError else {
+                            Issue.record("Wrong underlying error: \(underlying)")
+                            return
+                        }
+                    default:
                         Issue.record("Wrong error: \(error)")
-                        return
                     }
                 }
             }
