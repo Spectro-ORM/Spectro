@@ -148,46 +148,6 @@ public final class MigrationManager: @unchecked Sendable {
         ])
     }
 
-    public func getFormattedStatus() async throws -> String {
-        let (migrations, statuses) = try await getMigrationStatuses()
-        guard !migrations.isEmpty else { return formatEmptyStateMessage() }
-
-        let green = "\u{001B}[32m", yellow = "\u{001B}[33m"
-        let red = "\u{001B}[31m", reset = "\u{001B}[0m", dim = "\u{001B}[2m"
-
-        var lines = ["\nMigration Status:", "Location: \(migrationsPath.path)",
-                     String(repeating: "-", count: 80),
-                     "Version".padding(toLength: 40, withPad: " ", startingAt: 0)
-                       + "Name".padding(toLength: 20, withPad: " ", startingAt: 0) + "Status",
-                     String(repeating: "-", count: 80)]
-
-        for m in migrations {
-            let status = statuses[m.version] ?? .pending
-            let color = status == .completed ? green : status == .pending ? yellow : red
-            lines.append(
-                m.version.padding(toLength: 40, withPad: " ", startingAt: 0)
-                + m.name.padding(toLength: 20, withPad: " ", startingAt: 0)
-                + color + status.rawValue.capitalized + reset
-            )
-        }
-
-        var pending = 0, completed = 0, failed = 0
-        for m in migrations {
-            switch statuses[m.version] {
-            case nil, .pending: pending += 1
-            case .completed:    completed += 1
-            case .failed:       failed += 1
-            }
-        }
-
-        lines += ["", "Summary:", "Total: \(migrations.count)",
-                  "Pending: \(pending > 0 ? yellow : green)\(pending)\(reset)",
-                  "Completed: \(green)\(completed)\(reset)",
-                  "Failed: \(failed > 0 ? red : green)\(failed)\(reset)",
-                  "", dim + "Run 'spectro migration --help' for commands" + reset, ""]
-
-        return lines.joined(separator: "\n")
-    }
 
     // MARK: - Private
 
@@ -249,43 +209,4 @@ public final class MigrationManager: @unchecked Sendable {
     private static let upMarker = "-- migrate:up"
     private static let downMarker = "-- migrate:down"
 
-    // MARK: - CLI Message Helpers
-
-    private static let migrationCreatedMessageOptions = [
-        "📜 Fresh migration dropped.", "✨ New migration, who dis?",
-        "🚀 New migration ready for takeoff!", "🎉 Migration created!"
-    ]
-
-    private static let migrationAppliedMessageOptions = [
-        "✅ Migration applied!", "🚀 Migration complete. All systems go!",
-        "🎉 Migration applied successfully.", "✨ Smooth — migration applied."
-    ]
-
-    private static let rollbackAppliedMessageOptions = [
-        "🔄 Rollback complete.", "⏪ Rolled back successfully.",
-        "🛠️ Rollback done.", "🔙 Rollback complete."
-    ]
-
-    public func migrationCreatedMessages() -> String {
-        Self.migrationCreatedMessageOptions.randomElement()!
-    }
-
-    public func migrationAppliedMessages() -> String {
-        Self.migrationAppliedMessageOptions.randomElement()!
-    }
-
-    public func rollbackAppliedMessages() -> String {
-        Self.rollbackAppliedMessageOptions.randomElement()!
-    }
-
-    private func formatEmptyStateMessage() -> String {
-        """
-        Migration Status:
-        No migrations found in \(migrationsPath.path).
-
-        Quick Start:
-          spectro migrate generate <name>
-          spectro migrate up
-        """
-    }
 }

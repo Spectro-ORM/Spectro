@@ -1,5 +1,5 @@
 {
-  "originHash" : "4793fbf41e60390348ece812accc4db38c94f26fa0dda1916a2cb86dec926b5c",
+  "originHash" : "8110a9daccf3ebde9665e749727604743afd514eb1fb9c05774cb3eb35b05147",
   "pins" : [
     {
       "identity" : "async-kit",
@@ -8,6 +8,24 @@
       "state" : {
         "revision" : "6f3615ccf2ac3c2ae0c8087d527546e9544a43dd",
         "version" : "1.21.0"
+      }
+    },
+    {
+      "identity" : "noora",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tuist/Noora",
+      "state" : {
+        "revision" : "70c6d1477a982f3e4cd46ed2d122e04e9d0a0b59",
+        "version" : "0.56.0"
+      }
+    },
+    {
+      "identity" : "path",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tuist/path",
+      "state" : {
+        "revision" : "7c74ac435e03a927c3a73134c48b61e60221abcb",
+        "version" : "0.3.8"
       }
     },
     {
@@ -26,6 +44,15 @@
       "state" : {
         "revision" : "7fa45c5a1f6e79338a26e18121210a87389f7a67",
         "version" : "1.31.0"
+      }
+    },
+    {
+      "identity" : "rainbow",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Rainbow",
+      "state" : {
+        "revision" : "cdf146ae671b2624917648b61c908d1244b98ca1",
+        "version" : "4.2.1"
       }
     },
     {

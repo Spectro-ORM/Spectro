@@ -1,5 +1,6 @@
 import ArgumentParser
 import NIOCore
+@preconcurrency import Noora
 import PostgresKit
 @preconcurrency import Spectro
 import SpectroCommon
@@ -17,18 +18,27 @@ struct Create: AsyncParsableCommand {
     func run() async throws {
         let dbName = name ?? database
         guard let dbName, !dbName.isEmpty else {
-            print("Error: Database name is required.")
-            print("Usage: spectro database create <name>")
-            print("   or: spectro database create --database <name>")
+            SpectroUI.noora.error(.alert(
+                "Database name is required.",
+                takeaways: [
+                    "Usage: \(.command("spectro database create <name>"))",
+                    "   or: \(.command("spectro database create --database <name>"))",
+                ]
+            ))
             throw ExitCode.validationFailure
         }
 
         guard dbName != "postgres" else {
-            print("Error: Refusing to create 'postgres' — that's the system database.")
+            SpectroUI.noora.error(.alert("Refusing to create \(.danger("postgres")) — that's the system database."))
             throw ExitCode.validationFailure
         }
 
-        try validateDatabaseIdentifier(dbName)
+        do {
+            try validateDatabaseIdentifier(dbName)
+        } catch {
+            SpectroUI.noora.error(.alert("\(error.localizedDescription)"))
+            throw ExitCode.validationFailure
+        }
 
         try await ConfigurationManager.shared.loadEnvFile()
         var overrides: [String: String] = [:]
@@ -43,17 +53,28 @@ struct Create: AsyncParsableCommand {
 
         let repo = spectro.repository()
         do {
-            try await repo.executeRawSQL("CREATE DATABASE \"\(escapeIdentifier(dbName))\"")
-            print("Database '\(dbName)' created successfully.")
+            try await SpectroUI.noora.progressStep(
+                message: "Creating database '\(dbName)'",
+                successMessage: "Database '\(dbName)' created successfully.",
+                errorMessage: "Failed to create database '\(dbName)'",
+                showSpinner: true
+            ) { _ in
+                try await repo.executeRawSQL("CREATE DATABASE \"\(escapeIdentifier(dbName))\"")
+            }
         } catch {
             await spectro.shutdown()
             let message = String(describing: error)
             if message.contains("already exists") {
-                print("Database '\(dbName)' already exists.")
+                SpectroUI.noora.warning(.alert(
+                    "Database \(.primary(dbName)) already exists.",
+                    takeaway: "Use \(.command("spectro migrate status")) to check current state"
+                ))
                 return
             }
-            print("Error: Could not create database '\(dbName)'.")
-            print("Reason: \(extractPGMessage(from: error))")
+            SpectroUI.noora.error(.alert(
+                "Could not create database \(.primary(dbName)).",
+                takeaways: ["\(.muted(extractPGMessage(from: error)))"]
+            ))
             throw ExitCode.failure
         }
         await spectro.shutdown()

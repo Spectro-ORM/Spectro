@@ -1,5 +1,6 @@
 import ArgumentParser
 import NIOCore
+@preconcurrency import Noora
 import Spectro
 import SpectroCommon
 
@@ -26,8 +27,64 @@ struct Status: AsyncParsableCommand {
             username: config.username, password: config.password, database: config.database
         )
 
-        let status = try await spectro.migrationManager().getFormattedStatus()
-        print(status)
+        let manager = spectro.migrationManager()
+        do {
+            let (migrations, statuses) = try await manager.getMigrationStatuses()
+
+            guard !migrations.isEmpty else {
+                SpectroUI.noora.info(.alert(
+                    "No migrations found.",
+                    takeaways: [
+                        "Run \(.command("spectro generate migration <name>")) to create one",
+                        "Run \(.command("spectro migrate up")) to apply migrations",
+                    ]
+                ))
+                await spectro.shutdown()
+                return
+            }
+
+            let headers: [TableCellStyle] = [
+                .primary("Version"),
+                .primary("Name"),
+                .primary("Status"),
+            ]
+
+            let rows: [StyledTableRow] = migrations.map { m in
+                let status = statuses[m.version] ?? .pending
+                let statusCell: TableCellStyle = switch status {
+                case .completed: .success(status.rawValue.capitalized)
+                case .pending:   .warning(status.rawValue.capitalized)
+                case .failed:    .danger(status.rawValue.capitalized)
+                }
+                return [
+                    .plain(m.version),
+                    .plain(m.name),
+                    statusCell,
+                ]
+            }
+
+            SpectroUI.noora.table(headers: headers, rows: rows)
+
+            var pending = 0, completed = 0, failed = 0
+            for m in migrations {
+                switch statuses[m.version] {
+                case nil, .pending: pending += 1
+                case .completed:    completed += 1
+                case .failed:       failed += 1
+                }
+            }
+
+            SpectroUI.noora.info(.alert(
+                "\(migrations.count) total: \(.success("\(completed) applied")), \(.accent("\(pending) pending")), \(.danger("\(failed) failed"))"
+            ))
+        } catch {
+            SpectroUI.noora.error(.alert(
+                "Failed to check migration status",
+                takeaways: ["\(.muted(error.localizedDescription))"]
+            ))
+            await spectro.shutdown()
+            throw error
+        }
         await spectro.shutdown()
     }
 }

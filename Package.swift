@@ -20,6 +20,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/async-kit.git", from: "1.15.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.34.0"),
         .package(url: "https://github.com/apple/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/tuist/Noora", .upToNextMajor(from: "0.15.0")),
     ],
     targets: [
         .target(
@@ -55,6 +56,7 @@ let package = Package(
                 "SpectroCommon",
                 "Spectro",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Noora", package: "Noora"),
             ],
             path: "Sources/SpectroCLI",
             swiftSettings: [.swiftLanguageMode(.v6)]

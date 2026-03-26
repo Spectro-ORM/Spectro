@@ -1,12 +1,11 @@
 import ArgumentParser
-import Logging
-import PostgresKit
+@preconcurrency import Noora
 import Spectro
 
 struct Rollback: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "down")
 
-    @Option(help: "Number of migrations to rollback") var step: Int?
+    @Option(name: .long, help: "Number of migrations to rollback") var step: Int?
     @Option(name: .long, help: "Database Username") var username: String?
     @Option(name: .long, help: "Database Password") var password: String?
     @Option(name: .long, help: "Database Name")     var database: String?
@@ -26,10 +25,30 @@ struct Rollback: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
-            try await manager.runRollback(steps: step)
-            print(manager.rollbackAppliedMessages())
+            let applied = try await manager.getAppliedMigrations()
+            let count = min(step ?? applied.count, applied.count)
+            guard count > 0 else {
+                SpectroUI.noora.info(.alert(
+                    "No migrations to roll back.",
+                    takeaways: ["Run \(.command("spectro migrate status")) to see current state"]
+                ))
+                await spectro.shutdown()
+                return
+            }
+
+            try await SpectroUI.noora.progressStep(
+                message: "Rolling back \(count) migration(s)",
+                successMessage: SpectroUI.randomRollbackApplied(),
+                errorMessage: "Rollback failed",
+                showSpinner: true
+            ) { _ in
+                try await manager.runRollback(steps: step)
+            }
         } catch {
-            print("Rollback failed: \(error.localizedDescription)")
+            SpectroUI.noora.error(.alert(
+                "Rollback failed",
+                takeaways: ["\(.muted(error.localizedDescription))"]
+            ))
             await spectro.shutdown()
             throw error
         }

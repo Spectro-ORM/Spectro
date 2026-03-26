@@ -1,4 +1,5 @@
 import ArgumentParser
+@preconcurrency import Noora
 import SpectroCommon
 
 struct Test: AsyncParsableCommand {
@@ -10,8 +11,12 @@ struct Test: AsyncParsableCommand {
     var input: String
 
     func run() throws {
-        print("Original:   \(input)")
-        print("Snake case: \(input.snakeCase())")
-        print("Pascal case: \(input.pascalCase())")
+        let headers: [TableCellStyle] = [.primary("Format"), .primary("Result")]
+        let rows: [StyledTableRow] = [
+            [.plain("Original"), .plain(input)],
+            [.plain("Snake case"), .muted(input.snakeCase())],
+            [.plain("Pascal case"), .muted(input.pascalCase())],
+        ]
+        SpectroUI.noora.table(headers: headers, rows: rows)
     }
 }

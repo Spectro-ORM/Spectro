@@ -9,8 +9,7 @@ func validateDatabaseIdentifier(_ name: String) throws {
     guard !name.isEmpty,
           name.unicodeScalars.allSatisfy({ allowed.contains($0) }),
           !name.first!.isNumber else {
-        print("Error: Invalid database name '\(name)'. Use only letters, numbers, and underscores.")
-        throw ExitCode.validationFailure
+        throw ValidationError("Invalid database name '\(name)'. Use only letters, numbers, and underscores.")
     }
 }
 

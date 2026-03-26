@@ -1,4 +1,5 @@
 import ArgumentParser
+@preconcurrency import Noora
 import Spectro
 
 struct GenerateMigration: AsyncParsableCommand {
@@ -26,9 +27,20 @@ struct GenerateMigration: AsyncParsableCommand {
         let generator = MigrationGenerator(migrationManager: manager)
         do {
             try await generator.generate(name: name)
-            print(manager.migrationCreatedMessages())
+            SpectroUI.noora.success(.alert(
+                "Migration \(.primary(name)) created",
+                takeaways: [
+                    "Edit the migration in \(.muted("Sources/Migrations/"))",
+                    "Run \(.command("spectro migrate up")) to apply",
+                ]
+            ))
         } catch {
-            print("Error: \(error)")
+            SpectroUI.noora.error(.alert(
+                "Failed to generate migration \(.primary(name))",
+                takeaways: ["\(.muted("\(error)"))"]
+            ))
+            await spectro.shutdown()
+            throw ExitCode.failure
         }
         await spectro.shutdown()
     }

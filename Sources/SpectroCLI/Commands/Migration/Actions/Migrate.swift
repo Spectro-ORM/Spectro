@@ -1,6 +1,5 @@
 import ArgumentParser
-import Logging
-import PostgresKit
+@preconcurrency import Noora
 import Spectro
 
 struct Migrate: AsyncParsableCommand {
@@ -25,10 +24,29 @@ struct Migrate: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
-            try await manager.runMigrations()
-            print(manager.migrationAppliedMessages())
+            let pending = try await manager.getPendingMigrations()
+            guard !pending.isEmpty else {
+                SpectroUI.noora.info(.alert(
+                    "No pending migrations.",
+                    takeaways: ["Run \(.command("spectro migrate status")) to see current state"]
+                ))
+                await spectro.shutdown()
+                return
+            }
+
+            try await SpectroUI.noora.progressStep(
+                message: "Applying \(pending.count) migration(s)",
+                successMessage: SpectroUI.randomMigrationApplied(),
+                errorMessage: "Migration failed",
+                showSpinner: true
+            ) { _ in
+                try await manager.runMigrations()
+            }
         } catch {
-            print("Migration failed: \(error.localizedDescription)")
+            SpectroUI.noora.error(.alert(
+                "Migration failed",
+                takeaways: ["\(.muted(error.localizedDescription))"]
+            ))
             await spectro.shutdown()
             throw error
         }
