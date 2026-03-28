@@ -69,7 +69,10 @@ jobs:
           swift test 2>&1 | tee test-output.log
           TEST_EXIT=$?
           set -e
-          if grep -q '✘' test-output.log; then
+          # Check for actual test failures (not skipped tests).
+          # Swift Testing uses ✘ for both "failed" and "skipped", so match
+          # lines that say "failed" but not "skipped".
+          if grep '✘' test-output.log | grep -q 'failed'; then
             echo "::error::Tests reported failures"
             exit 1
           fi
