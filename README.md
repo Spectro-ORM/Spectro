@@ -14,6 +14,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - [Relationships](#relationships)
 - [Transactions](#transactions)
 - [Aggregates and GROUP BY](#aggregates-and-group-by)
+- [JSON Encoding](#json-encoding)
 - [Field Selection](#field-selection)
 - [CLI Reference](#cli-reference)
 - [Architecture](#architecture)
@@ -26,7 +27,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 ## Features
 
 - **Property-wrapper schema definitions** -- `@ID`, `@Column`, `@Timestamp`, `@ForeignKey`, `@HasMany`, `@HasOne`, `@BelongsTo`, `@ManyToMany`
-- **`@Schema` macro** -- generates `SchemaBuilder` conformance at compile time (zero boilerplate)
+- **`@Schema` macro** -- generates `SchemaBuilder` and `Encodable` conformance at compile time (zero boilerplate)
 - **Generic primary keys** -- `@ID<UUID>`, `@ID<Int>`, `@ID<String>` via the `PrimaryKeyType` protocol
 - **Immutable query builder** -- `Query<T>` is a value type; every `.where()`, `.join()`, `.orderBy()` returns a new query
 - **Type-safe aggregates** -- `.sum()`, `.avg()`, `.min()`, `.max()`, `.count()` with `GROUP BY` and `HAVING` support
@@ -95,7 +96,7 @@ struct User {
 }
 ```
 
-The `@Schema` macro generates `Schema` and `SchemaBuilder` conformance at compile time -- no manual `init()` or `build(from:)` required.
+The `@Schema` macro generates `Schema`, `SchemaBuilder`, and `Encodable` conformance at compile time -- no manual `init()`, `build(from:)`, or `encode(to:)` required.
 
 ### 2. Connect and query
 
@@ -141,6 +142,7 @@ The `@Schema("table_name")` macro generates everything needed to map a struct to
 - A default `init()` with type-appropriate defaults
 - A convenience `init(column params...)` for `@Column` and `@ForeignKey` properties
 - `SchemaBuilder.build(from:)` for row mapping
+- `Encodable` conformance with `CodingKeys` and `encode(to:)` for JSON serialization
 
 ```swift
 @Schema("users")
@@ -592,6 +594,63 @@ public struct GroupedResult: Sendable {
 }
 ```
 
+## JSON Encoding
+
+Every `@Schema` type automatically conforms to `Encodable`, so you can pass schema instances directly to `JSONEncoder` or any API that accepts `Encodable`:
+
+```swift
+let user = try await repo.get(User.self, id: someUUID)
+let json = try JSONEncoder().encode(user)
+```
+
+### Key strategy
+
+JSON keys use `snake_case` by default, matching the database column convention:
+
+```swift
+@Schema("products")
+struct Product {
+    @ID var id: UUID                    // → "id"
+    @Column var productName: String     // → "product_name"
+    @Column var isAvailable: Bool       // → "is_available"
+    @Timestamp var createdAt: Date      // → "created_at"
+}
+```
+
+`@Column("custom_name")` overrides take precedence over the automatic conversion:
+
+```swift
+@Column("display") var displayName: String  // → "display" (not "display_name")
+```
+
+### Relationship encoding
+
+Relationship fields are only included in the JSON when they have been loaded. If a relationship is `.notLoaded`, its key is omitted entirely -- no nulls or empty arrays leak into responses:
+
+```swift
+// User fetched without preloading -- relationships omitted from JSON
+let user = try await repo.get(User.self, id: someUUID)
+// → {"id": "...", "name": "Alice", "email": "alice@example.com", "created_at": "..."}
+
+// User fetched with preloading -- relationships included
+let user = try await repo.query(User.self)
+    .preload(\.$posts)
+    .firstOrFail()
+// → {"id": "...", "name": "Alice", ..., "posts": [{...}, {...}]}
+```
+
+### Opting out
+
+If you don't want `Encodable` generated (e.g., for internal-only schemas), pass `encodable: false`:
+
+```swift
+@Schema("secrets", encodable: false)
+struct Secret {
+    @ID var id: UUID
+    @Column var value: String
+}
+```
+
 ## Field Selection
 
 Select specific columns instead of `SELECT *` using `TupleQuery`:
@@ -856,7 +915,8 @@ Tests/SpectroTests/
 │   ├── SchemaTests.swift         # Schema registration and metadata
 │   ├── RelationshipTests.swift   # Relationship property wrappers
 │   ├── LazyLoaderTests.swift     # SpectroLazyRelation state machine
-│   └── MacroLoaderInjectionTests.swift
+│   ├── MacroLoaderInjectionTests.swift
+│   └── EncodableSchemaTests.swift # Encodable conformance generation
 ├── QueryTests/
 │   ├── QueryTests.swift          # SQL generation for Query<T>
 │   ├── QueryOperatorTests.swift  # All operator combinations
