@@ -38,6 +38,18 @@
 ### SpectroDemo (Hummingbird Blog API)
 - [x] Full REST API validated with curl (CRUD + preloading)
 
+## Encodable Schema Conformance — COMPLETE
+
+### Spec: 01-encodable-schema
+- [x] `@Schema` macro generates `Encodable` extension with `CodingKeys` + `encode(to:)`
+- [x] All `@Column`, `@ID`, `@Timestamp`, `@ForeignKey` properties encoded
+- [x] `@Column("custom")` overrides produce the correct JSON key
+- [x] Properties without overrides use `snake_case` conversion
+- [x] Relationship properties encode only when `.loaded`, omit key when `.notLoaded`
+- [x] `@Schema("table", encodable: false)` opt-out skips Encodable generation
+- [x] 12 integration tests (scalar types, snake_case keys, column overrides, relationships, opt-out, round-trip)
+- [x] Zero regressions — 76 existing tests pass
+
 ## Future Work
 - [x] Support user-supplied primary keys in repo.insert() — `includePrimaryKey: Bool` param on insert/upsert/insertAll
 - [x] Fix fromSync(row:) to respect @Column("custom_name") overrides

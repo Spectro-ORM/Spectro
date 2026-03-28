@@ -160,6 +160,19 @@ private func extractTableName(from node: AttributeSyntax) -> String? {
     return segment.content.text
 }
 
+/// Extract the `encodable:` parameter from `@Schema("table", encodable: false)`.
+/// Defaults to `true` when the parameter is absent.
+private func extractEncodableFlag(from node: AttributeSyntax) -> Bool {
+    guard let arguments = node.arguments?.as(LabeledExprListSyntax.self) else { return true }
+    for arg in arguments {
+        if arg.label?.text == "encodable",
+           let boolLiteral = arg.expression.as(BooleanLiteralExprSyntax.self) {
+            return boolLiteral.literal.text == "true"
+        }
+    }
+    return true
+}
+
 private func defaultValueExpression(for prop: PropertyInfo) -> String {
     if prop.isOptional { return "nil" }
     switch prop.wrapper {
@@ -351,6 +364,10 @@ extension SchemaMacro: ExtensionMacro {
 
         let typeName = structDecl.name.text
         let allProps = collectProperties(from: structDecl)
+        var extensions: [ExtensionDeclSyntax] = []
+
+        // --- Schema + SchemaBuilder extension ---
+
         var assignments: [String] = []
 
         // Column-attribute properties: @ID, @Column, @Timestamp, @ForeignKey
@@ -407,7 +424,7 @@ extension SchemaMacro: ExtensionMacro {
 
         let body = assignments.joined(separator: "\n            ")
 
-        let ext: DeclSyntax = """
+        let schemaExt: DeclSyntax = """
         extension \(raw: typeName): Schema, SchemaBuilder {
             public static func build(from values: [String: Any]) -> \(raw: typeName) {
                 var instance = \(raw: typeName)()
@@ -417,9 +434,84 @@ extension SchemaMacro: ExtensionMacro {
         }
         """
 
-        guard let extDecl = ext.as(ExtensionDeclSyntax.self) else { return [] }
-        return [extDecl]
+        if let extDecl = schemaExt.as(ExtensionDeclSyntax.self) {
+            extensions.append(extDecl)
+        }
+
+        // --- Encodable extension ---
+
+        let encodable = extractEncodableFlag(from: node)
+        if encodable {
+            let encodableExt = generateEncodableExtension(typeName: typeName, properties: allProps)
+            if let extDecl = encodableExt.as(ExtensionDeclSyntax.self) {
+                extensions.append(extDecl)
+            }
+        }
+
+        return extensions
     }
+}
+
+// MARK: - Encodable Generation
+
+private func generateEncodableExtension(typeName: String, properties: [PropertyInfo]) -> DeclSyntax {
+    // Build CodingKeys cases
+    var codingKeyCases: [String] = []
+    for prop in properties {
+        let jsonKey: String
+        if let override = prop.columnName {
+            jsonKey = override
+        } else {
+            jsonKey = toSnakeCase(prop.name)
+        }
+
+        if jsonKey == prop.name {
+            codingKeyCases.append("case \(prop.name)")
+        } else {
+            codingKeyCases.append("case \(prop.name) = \"\(jsonKey)\"")
+        }
+    }
+
+    // Build encode(to:) statements
+    var encodeStatements: [String] = []
+    for prop in properties {
+        switch prop.wrapper {
+        case .id, .column, .timestamp, .foreignKey:
+            if prop.isOptional {
+                encodeStatements.append(
+                    "try container.encodeIfPresent(self.\(prop.name), forKey: .\(prop.name))"
+                )
+            } else {
+                encodeStatements.append(
+                    "try container.encode(self.\(prop.name), forKey: .\(prop.name))"
+                )
+            }
+        case .hasOne, .belongsTo:
+            encodeStatements.append(
+                "if self.$\(prop.name).isLoaded { try container.encodeIfPresent(self.\(prop.name), forKey: .\(prop.name)) }"
+            )
+        case .hasMany, .manyToMany:
+            encodeStatements.append(
+                "if self.$\(prop.name).isLoaded { try container.encode(self.\(prop.name), forKey: .\(prop.name)) }"
+            )
+        }
+    }
+
+    let codingKeysBody = codingKeyCases.joined(separator: "\n            ")
+    let encodeBody = encodeStatements.joined(separator: "\n            ")
+
+    return """
+    extension \(raw: typeName): Encodable {
+        enum CodingKeys: String, CodingKey {
+            \(raw: codingKeysBody)
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            \(raw: encodeBody)
+        }
+    }
+    """
 }
 
 // MARK: - Diagnostics
