@@ -33,4 +33,72 @@ extension Repo {
     public func executeRawQuery(sql: String) async throws -> [PostgresRow] {
         try await executeRawQuery(sql: sql, parameters: [])
     }
+
+    // MARK: - Changeset
+
+    /// Insert a new record from a validated changeset.
+    ///
+    /// Builds an instance from the changeset's changes using `SchemaBuilder.build(from:)`,
+    /// then delegates to the standard `insert(_:)`. Requires `T: SchemaBuilder`.
+    public func insert<T: Schema & SchemaBuilder>(_ changeset: Changeset<T>) async throws -> T {
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            throw SpectroError.invalidSchema(reason: "Cannot insert from a changeset with no changes")
+        }
+        var anyChanges: [String: Any] = [:]
+        for (key, value) in changes {
+            anyChanges[key] = value
+        }
+        let instance = T.build(from: anyChanges)
+        return try await insert(instance)
+    }
+
+    /// Update an existing record from a validated changeset.
+    ///
+    /// Extracts the primary key from `changeset.data` and delegates to `update(_:id:changes:)`.
+    public func update<T: Schema>(_ changeset: Changeset<T>) async throws -> T {
+        guard let existingData = changeset.data else {
+            throw SpectroError.invalidSchema(
+                reason: "Cannot update from a changeset with no existing data. Use insert(_:) for new records."
+            )
+        }
+
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            return existingData
+        }
+
+        let metadata = await SchemaRegistry.shared.register(T.self)
+        guard let pkFieldName = metadata.primaryKeyField else {
+            throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
+        }
+
+        let mirror = Mirror(reflecting: existingData)
+        var pkValue: (any PrimaryKeyType)?
+        for child in mirror.children {
+            guard let label = child.label else { continue }
+            let name = label.hasPrefix("_") ? String(label.dropFirst()) : label
+            guard name == pkFieldName else { continue }
+
+            let wrapperMirror = Mirror(reflecting: child.value)
+            for wrapperChild in wrapperMirror.children {
+                if wrapperChild.label == "wrappedValue" {
+                    pkValue = wrapperChild.value as? (any PrimaryKeyType)
+                    break
+                }
+            }
+            if pkValue == nil {
+                pkValue = child.value as? (any PrimaryKeyType)
+            }
+            break
+        }
+
+        guard let id = pkValue else {
+            throw SpectroError.invalidSchema(
+                reason: "Could not extract primary key value from \(T.self)"
+            )
+        }
+
+        return try await update(T.self, id: id, changes: changes)
+    }
 }

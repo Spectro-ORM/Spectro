@@ -313,4 +313,116 @@ public actor GenericDatabaseRepo: Repo {
         }
         return result
     }
+
+    // MARK: - Changeset Integration
+
+    /// Insert a new record from a validated changeset.
+    ///
+    /// Builds the INSERT statement directly from the changeset's changes dict,
+    /// so it works correctly regardless of whether `T` conforms to `MutableSchema`.
+    ///
+    /// ```swift
+    /// let cs = Changeset.cast(nil, params: ["name": "Alice"], permitted: ["name"])
+    ///     .validateRequired(["name"])
+    /// let user = try await repo.insert(cs)
+    /// ```
+    public func insert<T: Schema>(_ changeset: Changeset<T>) async throws -> T {
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            throw SpectroError.invalidSchema(
+                reason: "Cannot insert from a changeset with no changes"
+            )
+        }
+
+        let metadata = await SchemaRegistry.shared.register(T.self)
+        let knownColumns = Set(metadata.fields.map { $0.databaseName })
+
+        var columns: [String] = []
+        var values: [PostgresData] = []
+        for (field, value) in changes {
+            let dbColumn = field.snakeCase()
+            guard knownColumns.contains(dbColumn) else {
+                throw SpectroError.invalidSchema(reason: "Unknown column '\(field)' on \(T.self)")
+            }
+            columns.append(dbColumn.quoted)
+            values.append(try SchemaMapper.convertToPostgresData(value))
+        }
+
+        let placeholders = (1...columns.count).map { "$\($0)" }.joined(separator: ", ")
+        let sql = """
+            INSERT INTO \(metadata.tableName.quoted) (\(columns.joined(separator: ", ")))
+            VALUES (\(placeholders))
+            RETURNING *
+            """
+
+        let rows = try await connection.executeQuery(
+            sql: sql,
+            parameters: values,
+            resultMapper: { $0 }
+        )
+
+        guard let row = rows.first else {
+            throw SpectroError.databaseError(reason: "Insert did not return a row")
+        }
+
+        return try await mapRowToSchema(row, schema: T.self)
+    }
+
+    /// Update an existing record from a validated changeset.
+    ///
+    /// The changeset must have `data != nil` (update mode) and be valid.
+    /// Only the changed fields are sent to the database.
+    ///
+    /// ```swift
+    /// let cs = Changeset.cast(existingUser, params: ["name": "Bob"], permitted: ["name"])
+    ///     .validateRequired(["name"])
+    /// let updated = try await repo.update(cs)
+    /// ```
+    public func update<T: Schema>(_ changeset: Changeset<T>) async throws -> T {
+        guard let existingData = changeset.data else {
+            throw SpectroError.invalidSchema(
+                reason: "Cannot update from a changeset with no existing data. Use insert(_:) for new records."
+            )
+        }
+
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            return existingData
+        }
+
+        let metadata = await SchemaRegistry.shared.register(T.self)
+        guard let pkFieldName = metadata.primaryKeyField else {
+            throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
+        }
+
+        guard let id = extractPrimaryKey(from: existingData, fieldName: pkFieldName) else {
+            throw SpectroError.invalidSchema(
+                reason: "Could not extract primary key value from \(T.self)"
+            )
+        }
+
+        return try await update(T.self, id: id, changes: changes)
+    }
+
+    /// Extract the primary key value from a schema instance via Mirror.
+    /// Handles both property-wrapper fields (`@ID`) and plain stored properties.
+    private func extractPrimaryKey<T: Schema>(from instance: T, fieldName: String) -> (any PrimaryKeyType)? {
+        let mirror = Mirror(reflecting: instance)
+        for child in mirror.children {
+            guard let label = child.label else { continue }
+            let name = label.hasPrefix("_") ? String(label.dropFirst()) : label
+            guard name == fieldName else { continue }
+
+            // Try property wrapper first
+            let wrapperMirror = Mirror(reflecting: child.value)
+            for wrapperChild in wrapperMirror.children {
+                if wrapperChild.label == "wrappedValue" {
+                    return wrapperChild.value as? (any PrimaryKeyType)
+                }
+            }
+            // Fallback: plain stored property
+            return child.value as? (any PrimaryKeyType)
+        }
+        return nil
+    }
 }
