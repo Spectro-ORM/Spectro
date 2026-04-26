@@ -27,6 +27,29 @@ struct SoftDeleteTests {
         await spectro.shutdown()
     }
 
+    private func withHardDeleteTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
+        let spectro = try TestDatabase.makeSpectro()
+        let repo = spectro.repository()
+        try await repo.executeRawSQL("""
+            CREATE TABLE IF NOT EXISTS "test_users" (
+                "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                "name" TEXT NOT NULL DEFAULT '',
+                "email" TEXT NOT NULL DEFAULT '',
+                "age" INT NOT NULL DEFAULT 0,
+                "is_active" BOOLEAN NOT NULL DEFAULT true,
+                "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
+        do {
+            try await body(repo)
+        } catch {
+            await spectro.shutdown()
+            throw error
+        }
+        await spectro.shutdown()
+    }
+
     @Test("delete() sets deleted_at instead of hard-deleting the row")
     func softDeleteSetsDeletedAt() async throws {
         try await withCleanTable { repo in
@@ -95,28 +118,13 @@ struct SoftDeleteTests {
 
     @Test("Hard-delete schema is unaffected by soft-delete logic")
     func hardDeleteSchemaUnaffected() async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
-        defer { Task { await spectro.shutdown() } }
+        try await withHardDeleteTable { repo in
+            let user = try await repo.insert(TestUser(name: "Iris", email: "iris@test.com", age: 30))
+            try await repo.delete(TestUser.self, id: user.id)
 
-        try await repo.executeRawSQL("""
-            CREATE TABLE IF NOT EXISTS "test_users" (
-                "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                "name" TEXT NOT NULL DEFAULT '',
-                "email" TEXT NOT NULL DEFAULT '',
-                "age" INT NOT NULL DEFAULT 0,
-                "is_active" BOOLEAN NOT NULL DEFAULT true,
-                "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """)
-        try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
-
-        let user = try await repo.insert(TestUser(name: "Iris", email: "iris@test.com", age: 30))
-        try await repo.delete(TestUser.self, id: user.id)
-
-        // Hard-deleted: row is gone
-        let all = try await repo.all(TestUser.self)
-        #expect(all.isEmpty)
+            let all = try await repo.all(TestUser.self)
+            #expect(all.isEmpty)
+        }
     }
 
     @Test("delete() is idempotent: second soft-delete is a no-op")

@@ -211,9 +211,15 @@ public actor DatabaseConnection {
         pools.shutdown()
     }
 
-    // Note: no deinit — actors cannot safely read isolated state (isShutdown) in
-    // deinit, and syncShutdownGracefully() would block the current thread. Call
-    // shutdown() explicitly before releasing a DatabaseConnection.
+    // Best-effort sync teardown in deinit to prevent NIO SIGBUS when tests drop
+    // a DatabaseConnection without calling shutdown(). Both pools.shutdown() and
+    // syncShutdownGracefully() are idempotent, so double-shutdown is safe.
+    // We cannot read isShutdown here (actor-isolated), so we always call —
+    // the NIO internals guard against double-shutdown themselves.
+    nonisolated public func syncShutdown() {
+        pools.shutdown()
+        try? eventLoopGroup.syncShutdownGracefully()
+    }
 
     // MARK: - Health Check
 
