@@ -46,7 +46,8 @@ public actor TransactionRepo: Repo {
             throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
         }
 
-        let sql = "SELECT * FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+        var sql = "SELECT * FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+        if let sdf = metadata.softDeleteField { sql += " AND \(sdf.quoted) IS NULL" }
 
         let rows = try await context.query(sql, [id.toPostgresData()], mapper: { $0 })
 
@@ -56,7 +57,8 @@ public actor TransactionRepo: Repo {
 
     public func all<T: Schema>(_ schema: T.Type) async throws -> [T] {
         let metadata = await SchemaRegistry.shared.register(schema)
-        let sql = "SELECT * FROM \(metadata.tableName.quoted)"
+        var sql = "SELECT * FROM \(metadata.tableName.quoted)"
+        if let sdf = metadata.softDeleteField { sql += " WHERE \(sdf.quoted) IS NULL" }
         let rows = try await context.query(sql, mapper: { $0 })
 
         var results: [T] = []
@@ -243,8 +245,18 @@ public actor TransactionRepo: Repo {
             throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
         }
 
-        let sql = "DELETE FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
-        try await context.execute(sql, [id.toPostgresData()])
+        if let sdf = metadata.softDeleteField {
+            let sql = """
+                UPDATE \(metadata.tableName.quoted)
+                SET \(sdf.quoted) = NOW()
+                WHERE \(primaryKey.snakeCase().quoted) = $1
+                AND \(sdf.quoted) IS NULL
+                """
+            try await context.execute(sql, [id.toPostgresData()])
+        } else {
+            let sql = "DELETE FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+            try await context.execute(sql, [id.toPostgresData()])
+        }
     }
 
     public func insert<T: Schema>(_ changeset: Changeset<T>) async throws -> T {

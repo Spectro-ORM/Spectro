@@ -57,7 +57,14 @@
 - [x] Add Changeset overloads to `TransactionRepo` (direct-SQL path, same as `GenericDatabaseRepo`)
 - [x] 8 integration tests: insert/update valid, invalid/empty changeset errors, changeset in transaction commit+rollback
 
-## Future Work
+## Feature Sprint — COMPLETE
+
+- [x] Pagination: `Query<T>.page(size:page:)` → `Page<T>` with totalCount, totalPages, hasNextPage, hasPreviousPage
+- [x] Changeset error serialization: `ChangesetErrors` (Encodable) + `.errorPayload` on `Changeset`
+- [x] `validateUniqueness`: async DB uniqueness check, excludes current record on update
+- [x] Soft deletes: `@SoftDelete` wrapper, auto-filter on all/get/query, soft delete() → UPDATE SET deleted_at=NOW(), `.withDeleted()` escape hatch
+
+## Previous Future Work — COMPLETE
 - [x] Support user-supplied primary keys in repo.insert() — `includePrimaryKey: Bool` param on insert/upsert/insertAll
 - [x] Fix fromSync(row:) to respect @Column("custom_name") overrides
 - [x] Test coverage for .constraint(...) conflict target (4 tests: insert/update/selective set/empty set error)

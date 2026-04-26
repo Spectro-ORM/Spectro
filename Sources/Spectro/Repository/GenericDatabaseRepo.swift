@@ -47,7 +47,8 @@ public actor GenericDatabaseRepo: Repo {
             throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
         }
 
-        let sql = "SELECT * FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+        var sql = "SELECT * FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+        if let sdf = metadata.softDeleteField { sql += " AND \(sdf.quoted) IS NULL" }
 
         let rows = try await connection.executeQuery(
             sql: sql,
@@ -61,7 +62,8 @@ public actor GenericDatabaseRepo: Repo {
 
     public func all<T: Schema>(_ schema: T.Type) async throws -> [T] {
         let metadata = await SchemaRegistry.shared.register(schema)
-        let sql = "SELECT * FROM \(metadata.tableName.quoted)"
+        var sql = "SELECT * FROM \(metadata.tableName.quoted)"
+        if let sdf = metadata.softDeleteField { sql += " WHERE \(sdf.quoted) IS NULL" }
         let rows = try await connection.executeQuery(sql: sql, resultMapper: { $0 })
 
         var results: [T] = []
@@ -270,8 +272,18 @@ public actor GenericDatabaseRepo: Repo {
             throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
         }
 
-        let sql = "DELETE FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
-        try await connection.executeUpdate(sql: sql, parameters: [id.toPostgresData()])
+        if let sdf = metadata.softDeleteField {
+            let sql = """
+                UPDATE \(metadata.tableName.quoted)
+                SET \(sdf.quoted) = NOW()
+                WHERE \(primaryKey.snakeCase().quoted) = $1
+                AND \(sdf.quoted) IS NULL
+                """
+            try await connection.executeUpdate(sql: sql, parameters: [id.toPostgresData()])
+        } else {
+            let sql = "DELETE FROM \(metadata.tableName.quoted) WHERE \(primaryKey.snakeCase().quoted) = $1"
+            try await connection.executeUpdate(sql: sql, parameters: [id.toPostgresData()])
+        }
     }
 
     public func transaction<T: Sendable>(_ work: @escaping @Sendable (any Repo) async throws -> T) async throws -> T {

@@ -25,10 +25,18 @@ public struct Query<T: Schema>: Sendable {
     internal var groupByFields: [String] = []
     internal var havingClause: String = ""
     internal var havingParameters: [PostgresData] = []
+    private var includeSoftDeleted: Bool = false
 
     internal init(schema: T.Type, executor: any QueryExecutor) {
         self.schema = schema
         self.executor = executor
+    }
+
+    /// Bypass the automatic soft-delete filter, returning all records including soft-deleted ones.
+    public func withDeleted() -> Query<T> {
+        var copy = self
+        copy.includeSoftDeleted = true
+        return copy
     }
 
     // MARK: - Where Clauses
@@ -329,6 +337,21 @@ public struct Query<T: Schema>: Sendable {
         return results.first ?? 0
     }
 
+    /// Fetch a single page of results, issuing a COUNT query and a paginated SELECT.
+    ///
+    /// ```swift
+    /// let page = try await repo.query(User.self)
+    ///     .where { $0.isActive == true }
+    ///     .orderBy("created_at", ascending: false)
+    ///     .page(size: 20, page: 1)
+    /// // page.items, page.totalCount, page.hasNextPage …
+    /// ```
+    public func page(size: Int, page: Int = 1) async throws -> Page<T> {
+        let total = try await self.count()
+        let items = try await self.limit(size).offset((page - 1) * size).all()
+        return Page(items: items, totalCount: total, pageSize: size, pageNumber: page)
+    }
+
     public func sum<V: Numeric>(_ field: (QueryBuilder<T>) -> QueryField<V>) async throws -> Double? {
         try await aggregateExecute(function: "SUM", column: field(QueryBuilder<T>()).name)
     }
@@ -418,11 +441,12 @@ public struct Query<T: Schema>: Sendable {
         let joinClause = buildJoinClause()
         let orderClause = buildOrderClause()
         let limitClause = buildLimitClause()
+        let effectiveWhere = buildWhereClause()
 
         var sql = "SELECT \(selectClause) FROM \(table)"
 
         if !joinClause.isEmpty { sql += " \(joinClause)" }
-        if !whereClause.isEmpty { sql += " WHERE \(whereClause)" }
+        if !effectiveWhere.isEmpty { sql += " WHERE \(effectiveWhere)" }
         if !orderClause.isEmpty { sql += " ORDER BY \(orderClause)" }
         if !limitClause.isEmpty { sql += limitClause }
 
@@ -432,13 +456,21 @@ public struct Query<T: Schema>: Sendable {
     internal func buildCountSQL() -> String {
         let table = T.tableName.quoted
         let joinClause = buildJoinClause()
+        let effectiveWhere = buildWhereClause()
 
         var sql = "SELECT COUNT(*) as count FROM \(table)"
 
         if !joinClause.isEmpty { sql += " \(joinClause)" }
-        if !whereClause.isEmpty { sql += " WHERE \(whereClause)" }
+        if !effectiveWhere.isEmpty { sql += " WHERE \(effectiveWhere)" }
 
         return renumberPlaceholders(in: sql)
+    }
+
+    private func buildWhereClause() -> String {
+        if includeSoftDeleted { return whereClause }
+        guard let sdf = T.softDeleteColumn else { return whereClause }
+        let sdFilter = "\(sdf.quoted) IS NULL"
+        return whereClause.isEmpty ? sdFilter : "\(sdFilter) AND \(whereClause)"
     }
 
     private func buildAggregateSQL(function: String, column: String) -> String {

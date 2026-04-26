@@ -398,4 +398,29 @@ struct ChangesetTests {
             .addError("name", message: "is too short")
         #expect(cs.errors["name"]?.count == 2)
     }
+
+    // MARK: - Error Serialization
+
+    @Test("errorPayload encodes errors correctly")
+    func errorPayloadEncodes() throws {
+        let cs = Changeset<TestUser>.cast(nil, params: ["name": ""], permitted: ["name"])
+            .validateRequired(["name", "email"])
+
+        let payload = cs.errorPayload
+        #expect(payload.errors["name"] != nil)
+        #expect(payload.errors["email"] != nil)
+
+        let data = try JSONEncoder().encode(payload)
+        let decoded = try JSONDecoder().decode([String: [String: [String]]].self, from: data)
+        #expect(decoded["errors"]?["name"] != nil)
+        #expect(decoded["errors"]?["email"] != nil)
+    }
+
+    @Test("errorPayload is empty when changeset is valid")
+    func errorPayloadEmptyWhenValid() throws {
+        let cs = Changeset<TestUser>.cast(nil, params: ["name": "Alice"], permitted: ["name"])
+        let data = try JSONEncoder().encode(cs.errorPayload)
+        let decoded = try JSONDecoder().decode([String: [String: [String]]].self, from: data)
+        #expect(decoded["errors"]?.isEmpty == true)
+    }
 }

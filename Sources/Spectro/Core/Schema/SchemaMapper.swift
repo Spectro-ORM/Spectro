@@ -37,6 +37,7 @@ public struct SchemaMapper {
             let fieldName = label.hasPrefix("_") ? String(label.dropFirst()) : label
             guard let field = metadata.fields.first(where: { $0.name == fieldName }) else { continue }
             if excludePrimaryKey && field.name == metadata.primaryKeyField { continue }
+            if field.isSoftDelete { continue }
 
             if let value = extractPropertyWrapperValue(child.value),
                let postgresData = try? convertToPostgresData(value) {

@@ -271,6 +271,52 @@ public struct Changeset<T: Schema>: Sendable {
         return self
     }
 
+    // MARK: - Serialization
+
+    /// Encodable snapshot of validation errors for JSON API responses.
+    public var errorPayload: ChangesetErrors { ChangesetErrors(self) }
+
+    // MARK: - Async Validation
+
+    /// Validate that no existing record in the database has the same value for `field`.
+    ///
+    /// For update changesets (`data != nil`), the current record is excluded from the
+    /// check so a record can be saved with its own existing value.
+    ///
+    /// ```swift
+    /// let cs = try await Changeset.cast(nil, params: params, permitted: ["email"])
+    ///     .validateRequired(["email"])
+    ///     .validateUniqueness("email", repo: repo)
+    /// ```
+    public func validateUniqueness(
+        _ field: String,
+        repo: some Repo,
+        message: String? = nil
+    ) async throws -> Changeset<T> {
+        guard let value = getField(field) else { return self }
+
+        let col = field.snakeCase().quoted
+        let pgData = try SchemaMapper.convertToPostgresData(value)
+
+        var query = repo.query(T.self)
+            .where { _ in QueryCondition(sql: "\(col) = ?", parameters: [pgData]) }
+
+        if let existing = data {
+            let metadata = await SchemaRegistry.shared.register(T.self)
+            if let pkField = metadata.primaryKeyField,
+               let id = extractPrimaryKey(from: existing, fieldName: pkField) {
+                let pkCol = pkField.snakeCase().quoted
+                query = query.where { _ in QueryCondition(sql: "\(pkCol) != ?", parameters: [id.toPostgresData()]) }
+            }
+        }
+
+        let count = try await query.count()
+        if count > 0 {
+            return addError(field, message: message ?? "has already been taken")
+        }
+        return self
+    }
+
     // MARK: - Apply
 
     /// Return the changes dict, suitable for passing to `Repo.update`.

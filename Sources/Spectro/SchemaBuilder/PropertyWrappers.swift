@@ -56,6 +56,17 @@ public struct Timestamp: Sendable {
     public init(wrappedValue: Date = Date()) { self.wrappedValue = wrappedValue }
 }
 
+/// Marks a nullable `Date?` column as the soft-delete sentinel.
+///
+/// Queries automatically filter `WHERE deleted_at IS NULL`. Calling
+/// `repo.delete(T.self, id:)` sets the column to `NOW()` instead of issuing a
+/// hard `DELETE`. Use `.withDeleted()` on a query to bypass the filter.
+@propertyWrapper
+public struct SoftDelete: Sendable {
+    public var wrappedValue: Date?
+    public init(wrappedValue: Date? = nil) { self.wrappedValue = wrappedValue }
+}
+
 @propertyWrapper
 public struct ForeignKey<T: PrimaryKeyType>: Sendable, ForeignKeyWrapperProtocol, ColumnNameOverridable {
     public var wrappedValue: T

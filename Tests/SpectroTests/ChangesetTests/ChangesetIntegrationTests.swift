@@ -168,5 +168,62 @@ extension DatabaseIntegrationTests {
                 #expect(all.isEmpty)
             }
         }
+
+        // MARK: - validateUniqueness
+
+    @Test("validateUniqueness blocks duplicate email on insert")
+    func validateUniquenessInsert() async throws {
+        try await withCleanTable { repo in
+            let _ = try await repo.insert(TestUser(name: "Alice", email: "alice@test.com", age: 30))
+
+            let cs = try await Changeset<TestUser>
+                .cast(nil, params: ["name": "Alice2", "email": "alice@test.com", "age": 25], permitted: ["name", "email", "age"])
+                .validateUniqueness("email", repo: repo)
+
+            #expect(!cs.isValid)
+            #expect(cs.errors["email"]?.contains("has already been taken") == true)
+        }
+    }
+
+    @Test("validateUniqueness passes for unique email on insert")
+    func validateUniquenessInsertPasses() async throws {
+        try await withCleanTable { repo in
+            let _ = try await repo.insert(TestUser(name: "Alice", email: "alice@test.com", age: 30))
+
+            let cs = try await Changeset<TestUser>
+                .cast(nil, params: ["name": "Bob", "email": "bob@test.com", "age": 25], permitted: ["name", "email", "age"])
+                .validateUniqueness("email", repo: repo)
+
+            #expect(cs.isValid)
+        }
+    }
+
+    @Test("validateUniqueness excludes current record on update")
+    func validateUniquenessUpdateSelf() async throws {
+        try await withCleanTable { repo in
+            let user = try await repo.insert(TestUser(name: "Carol", email: "carol@test.com", age: 40))
+
+            let cs = try await Changeset
+                .cast(user, params: ["email": "carol@test.com"], permitted: ["email"])
+                .validateUniqueness("email", repo: repo)
+
+            #expect(cs.isValid)
+        }
+    }
+
+    @Test("validateUniqueness blocks update to another record's email")
+    func validateUniquenessUpdateBlocked() async throws {
+        try await withCleanTable { repo in
+            let _ = try await repo.insert(TestUser(name: "Dan", email: "dan@test.com", age: 35))
+            let eve = try await repo.insert(TestUser(name: "Eve", email: "eve@test.com", age: 28))
+
+            let cs = try await Changeset
+                .cast(eve, params: ["email": "dan@test.com"], permitted: ["email"])
+                .validateUniqueness("email", repo: repo)
+
+            #expect(!cs.isValid)
+            #expect(cs.errors["email"]?.contains("has already been taken") == true)
+        }
+    }
     }
 }

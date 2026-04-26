@@ -102,6 +102,49 @@ struct TestMacroUser {
     @Timestamp var createdAt: Date
 }
 
+// MARK: - Soft Delete Test Schema
+
+struct SoftUser: Schema, SchemaBuilder {
+    static let tableName = "soft_users"
+
+    nonisolated(unsafe) static let _keyPathToColumn: [AnyKeyPath: String] = [
+        \SoftUser.id: "id",
+        \SoftUser.name: "name",
+        \SoftUser.email: "email",
+        \SoftUser.deletedAt: "deletedAt",
+    ]
+
+    nonisolated static var softDeleteColumn: String? { "deleted_at" }
+
+    @ID var id: UUID
+    @Column var name: String
+    @Column var email: String
+    @SoftDelete var deletedAt: Date?
+
+    init() {
+        self.id = UUID()
+        self.name = ""
+        self.email = ""
+        self.deletedAt = nil
+    }
+
+    init(name: String, email: String) {
+        self.id = UUID()
+        self.name = name
+        self.email = email
+        self.deletedAt = nil
+    }
+
+    static func build(from values: [String: Any]) -> SoftUser {
+        var user = SoftUser()
+        if let v = values["id"] as? UUID { user.id = v }
+        if let v = values["name"] as? String { user.name = v }
+        if let v = values["email"] as? String { user.email = v }
+        user.deletedAt = values["deletedAt"] as? Date
+        return user
+    }
+}
+
 // MARK: - Phase 1D Test Schemas
 
 /// Schema with a custom column name override via @Column("display_name")
