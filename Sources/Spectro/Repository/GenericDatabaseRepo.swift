@@ -404,25 +404,4 @@ public actor GenericDatabaseRepo: Repo {
         return try await update(T.self, id: id, changes: changes)
     }
 
-    /// Extract the primary key value from a schema instance via Mirror.
-    /// Handles both property-wrapper fields (`@ID`) and plain stored properties.
-    private func extractPrimaryKey<T: Schema>(from instance: T, fieldName: String) -> (any PrimaryKeyType)? {
-        let mirror = Mirror(reflecting: instance)
-        for child in mirror.children {
-            guard let label = child.label else { continue }
-            let name = label.hasPrefix("_") ? String(label.dropFirst()) : label
-            guard name == fieldName else { continue }
-
-            // Try property wrapper first
-            let wrapperMirror = Mirror(reflecting: child.value)
-            for wrapperChild in wrapperMirror.children {
-                if wrapperChild.label == "wrappedValue" {
-                    return wrapperChild.value as? (any PrimaryKeyType)
-                }
-            }
-            // Fallback: plain stored property
-            return child.value as? (any PrimaryKeyType)
-        }
-        return nil
-    }
 }

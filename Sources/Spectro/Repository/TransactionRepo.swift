@@ -247,6 +247,68 @@ public actor TransactionRepo: Repo {
         try await context.execute(sql, [id.toPostgresData()])
     }
 
+    public func insert<T: Schema>(_ changeset: Changeset<T>) async throws -> T {
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            throw SpectroError.invalidSchema(reason: "Cannot insert from a changeset with no changes")
+        }
+
+        let metadata = await SchemaRegistry.shared.register(T.self)
+        let knownColumns = Set(metadata.fields.map { $0.databaseName })
+
+        var columns: [String] = []
+        var values: [PostgresData] = []
+        for (field, value) in changes {
+            let dbColumn = field.snakeCase()
+            guard knownColumns.contains(dbColumn) else {
+                throw SpectroError.invalidSchema(reason: "Unknown column '\(field)' on \(T.self)")
+            }
+            columns.append(dbColumn.quoted)
+            values.append(try SchemaMapper.convertToPostgresData(value))
+        }
+
+        let placeholders = (1...columns.count).map { "$\($0)" }.joined(separator: ", ")
+        let sql = """
+            INSERT INTO \(metadata.tableName.quoted) (\(columns.joined(separator: ", ")))
+            VALUES (\(placeholders))
+            RETURNING *
+            """
+
+        let rows = try await context.query(sql, values, mapper: { $0 })
+
+        guard let row = rows.first else {
+            throw SpectroError.databaseError(reason: "Insert did not return a row")
+        }
+
+        return try await mapRowToSchema(row, schema: T.self)
+    }
+
+    public func update<T: Schema>(_ changeset: Changeset<T>) async throws -> T {
+        guard let existingData = changeset.data else {
+            throw SpectroError.invalidSchema(
+                reason: "Cannot update from a changeset with no existing data. Use insert(_:) for new records."
+            )
+        }
+
+        let changes = try changeset.applyChanges()
+        guard !changes.isEmpty else {
+            return existingData
+        }
+
+        let metadata = await SchemaRegistry.shared.register(T.self)
+        guard let pkFieldName = metadata.primaryKeyField else {
+            throw SpectroError.invalidSchema(reason: "Schema \(T.self) has no primary key field")
+        }
+
+        guard let id = extractPrimaryKey(from: existingData, fieldName: pkFieldName) else {
+            throw SpectroError.invalidSchema(
+                reason: "Could not extract primary key value from \(T.self)"
+            )
+        }
+
+        return try await update(T.self, id: id, changes: changes)
+    }
+
     public func transaction<T: Sendable>(_ work: @escaping @Sendable (any Repo) async throws -> T) async throws -> T {
         throw SpectroError.transactionAlreadyStarted
     }

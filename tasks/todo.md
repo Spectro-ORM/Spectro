@@ -50,6 +50,13 @@
 - [x] 12 integration tests (scalar types, snake_case keys, column overrides, relationships, opt-out, round-trip)
 - [x] Zero regressions — 76 existing tests pass
 
+## Changeset Hardening — COMPLETE
+
+- [x] Extract shared `extractPrimaryKey(from:fieldName:)` into `Core/Extensions/ChangesetHelpers.swift`
+- [x] Add `insert(_:Changeset<T>)` and `update(_:Changeset<T>)` as `Repo` protocol requirements (drop `SchemaBuilder` constraint)
+- [x] Add Changeset overloads to `TransactionRepo` (direct-SQL path, same as `GenericDatabaseRepo`)
+- [x] 8 integration tests: insert/update valid, invalid/empty changeset errors, changeset in transaction commit+rollback
+
 ## Future Work
 - [x] Support user-supplied primary keys in repo.insert() — `includePrimaryKey: Bool` param on insert/upsert/insertAll
 - [x] Fix fromSync(row:) to respect @Column("custom_name") overrides
