@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import Spectro
 
 /// Tests for the `spectro` CLI binary.
 /// Spawns the actual executable and verifies output/exit codes.
@@ -39,11 +40,12 @@ struct CLITests {
         var output: String { stdout + stderr }
     }
 
-    private func run(_ args: [String], env: [String: String]? = nil) throws -> CLIResult {
+    private func run(_ args: [String], env: [String: String]? = nil, directory: URL? = nil) throws -> CLIResult {
         let path = try spectroBinaryPath()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = args
+        process.currentDirectoryURL = directory
 
         var environment = ProcessInfo.processInfo.environment
         environment["DB_HOST"] = environment["DB_HOST"] ?? "localhost"
@@ -142,6 +144,52 @@ struct CLITests {
     }
 
     // MARK: - Create / Drop Lifecycle
+
+    @Test("Migration commands work on a fresh database", arguments: ["up", "down", "status"])
+    func freshMigrationDatabase(firstCommand: String) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("spectro-cli-\(UUID().uuidString)")
+        let migrations = directory.appendingPathComponent("Sources/Migrations")
+        try FileManager.default.createDirectory(at: migrations, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try """
+            -- migrate:up
+            CREATE TABLE cli_migration (id INT);
+            -- migrate:down
+            DROP TABLE cli_migration;
+            """.write(to: migrations.appendingPathComponent("1700000000_cli.sql"), atomically: true, encoding: .utf8)
+
+        let created = try run(["database", "create", testDB], directory: directory)
+        try #require(created.exitCode == 0)
+        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
+        let initial = try run(["migrate", firstCommand, "--database", testDB], directory: directory)
+        #expect(initial.exitCode == 0, "\(initial.output)")
+        let up = try run(["migrate", "up", "--database", testDB], directory: directory)
+        #expect(up.exitCode == 0, "\(up.output)")
+        // New connections inherit read-only mode. Status must not try to create tracking objects.
+        let control = try DatabaseConnection(configuration: .init(
+            hostname: TestDatabase.hostname, port: TestDatabase.port,
+            username: TestDatabase.username, password: TestDatabase.password,
+            database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
+        ))
+        let applied: CLIResult
+        do {
+            try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" SET default_transaction_read_only = on")
+            applied = try run(["migrate", "status", "--database", testDB], directory: directory)
+            try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
+        } catch {
+            try? await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
+            await control.shutdown()
+            throw error
+        }
+        await control.shutdown()
+        #expect(applied.exitCode == 0)
+        #expect(applied.output.contains("1 applied"))
+        let down = try run(["migrate", "down", "--step", "1", "--database", testDB], directory: directory)
+        #expect(down.exitCode == 0, "\(down.output)")
+        let pending = try run(["migrate", "status", "--database", testDB], directory: directory)
+        #expect(pending.exitCode == 0)
+        #expect(pending.output.contains("1 pending"))
+    }
 
     @Test("database create then drop lifecycle")
     func createAndDropLifecycle() throws {

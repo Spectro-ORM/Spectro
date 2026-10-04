@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 /// An Ecto-inspired changeset for tracking, casting, and validating changes to a `Schema`.
 ///
@@ -68,21 +69,30 @@ public struct Changeset<T: Schema>: Sendable {
 
     // MARK: - Cast
 
-    /// Cast external parameters into a changeset, filtering to only permitted fields.
+    /// Cast external parameters to schema types, filtering to permitted schema fields.
     ///
     /// This is the primary entry point for creating changesets. Unknown or
     /// non-permitted fields are silently dropped (not treated as errors),
     /// matching Ecto's strong-params approach.
+    /// Scalar strings are converted to numbers, booleans, UUIDs, and ISO 8601 dates.
+    /// Invalid values add an "is invalid" error and are excluded from changes.
     public static func cast(
         _ data: T?,
         params: [String: any Sendable],
         permitted: [String]
     ) -> Changeset<T> {
         let permittedSet = Set(permitted)
+        let fields = Dictionary(uniqueKeysWithValues: SchemaRegistry.extractMetadata(from: T.self).fields.map { ($0.name, $0) })
         var changes: [String: any Sendable] = [:]
+        var errors: [String: [String]] = [:]
 
         for (key, value) in params where permittedSet.contains(key) {
-            changes[key] = value
+            guard let field = fields[key] else { continue }
+            if let castValue = castValue(value, for: field) {
+                changes[key] = castValue
+            } else {
+                errors[key] = ["is invalid"]
+            }
         }
 
         let action: Action? = data == nil ? .insert : .update
@@ -90,7 +100,7 @@ public struct Changeset<T: Schema>: Sendable {
         return Changeset(
             data: data,
             changes: changes,
-            errors: [:],
+            errors: errors,
             permitted: permittedSet,
             action: action
         )
@@ -368,6 +378,63 @@ public struct Changeset<T: Schema>: Sendable {
     }
 
     // MARK: - Private Helpers
+
+    private static func castValue(_ value: any Sendable, for field: FieldInfo) -> (any Sendable)? {
+        let mirror = Mirror(reflecting: value)
+        if mirror.displayStyle == .optional && mirror.children.isEmpty {
+            return field.isNullable ? value : nil
+        }
+
+        // Foundation bridges JSON booleans to NSNumber, and conditional casts
+        // otherwise accept true as 1 and numeric 0/1 as Bool.
+        if let number = value as? NSNumber {
+            let isBoolean = CFGetTypeID(number) == CFBooleanGetTypeID()
+            switch (field.fieldType, isBoolean) {
+            case (.int, true), (.double, true), (.float, true), (.bool, false): return nil
+            default: break
+            }
+        }
+
+        switch field.fieldType {
+        case .string:
+            return value as? String
+        case .int:
+            if let number = value as? Int { return number }
+            return (value as? String).flatMap(Int.init)
+        case .double:
+            let number: Double?
+            if let v = value as? Double { number = v }
+            else if let v = value as? Int { number = Double(v) }
+            else if let v = value as? Float { number = Double(v) }
+            else { number = (value as? String).flatMap(Double.init) }
+            return number.flatMap { $0.isFinite ? $0 : nil }
+        case .float:
+            let number: Float?
+            if let v = value as? Float { number = v }
+            else if let v = value as? Double { number = Float(v) }
+            else if let v = value as? Int { number = Float(v) }
+            else { number = (value as? String).flatMap(Float.init) }
+            return number.flatMap { $0.isFinite ? $0 : nil }
+        case .bool:
+            if let boolean = value as? Bool { return boolean }
+            switch value as? String {
+            case "true", "1": return true
+            case "false", "0": return false
+            default: return nil
+            }
+        case .uuid:
+            if let uuid = value as? UUID { return uuid }
+            return (value as? String).flatMap(UUID.init(uuidString:))
+        case .date:
+            if let date = value as? Date { return date }
+            guard let string = value as? String else { return nil }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: string) { return date }
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: string)
+        }
+    }
 
     /// Extract a field value from a schema instance by property name using Mirror.
     private func extractFieldValue(from instance: T, named field: String) -> Any? {

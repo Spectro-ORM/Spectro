@@ -10,6 +10,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - [Quick Start](#quick-start)
 - [Schema Definition](#schema-definition)
 - [CRUD Operations](#crud-operations)
+- [Changesets](#changesets)
 - [Query Builder](#query-builder)
 - [Relationships](#relationships)
 - [Transactions](#transactions)
@@ -313,6 +314,22 @@ let users = [
 ]
 let inserted = try await repo.insertAll(users)
 ```
+
+## Changesets
+
+Use `Changeset<YourSchema>.cast` for external parameters before inserting or updating:
+
+```swift
+let changeset = Changeset<User>.cast(nil,
+    params: ["name": "Alice", "email": "alice@example.com"],
+    permitted: ["name", "email"])
+    .validateRequired(["name", "email"])
+let user = try await repo.insert(changeset)
+```
+
+Only permitted schema fields are kept, using Swift property names even when a column has a custom database name. Casting checks the schema type: numeric strings, `"true"`/`"false"` and `"1"`/`"0"` booleans, UUID strings, and ISO 8601 date strings are converted. Invalid values add an `"is invalid"` error and are excluded from `changes`; for example, `"banana"` for an integer field makes `isValid` false before any SQL runs. Non-finite floating-point values are rejected. Explicit optional `nil` values are accepted only for nullable fields.
+
+Pass an existing record instead of `nil` for an update. Direct `Changeset` initialization and `putChange` accept trusted application values without casting.
 
 ## Query Builder
 
@@ -695,7 +712,7 @@ All commands accept `--username`, `--password`, and `--database` flags. Values a
 
 ### Migration files
 
-Migrations are plain SQL in `Sources/Migrations/`, named `YYYYMMDDHHMMSS_<name>.sql`:
+Migrations are plain SQL in `Sources/Migrations/`, named `<unix_timestamp>_<name>.sql`:
 
 ```sql
 -- migrate:up
@@ -712,11 +729,13 @@ DROP TABLE "users";
 
 The `SQLStatementParser` handles semicolons inside dollar-quoted strings, inline `--` comments, and `/* */` block comments.
 
+Each migration runs on one PostgreSQL connection in a transaction that includes its tracking update. A failed `up` rolls back its schema changes and remains pending; a failed `down` preserves the applied schema and completed status. Correct the failed SQL and retry. Earlier migrations in the same run remain committed. Migration files must not contain transaction-control statements (`BEGIN`, `COMMIT`, `ROLLBACK`) or commands that cannot run inside a transaction, such as `CREATE INDEX CONCURRENTLY`.
+
 ### Generate a migration
 
 ```bash
 spectro generate migration CreateUsers
-# Creates: Sources/Migrations/20260324120000_CreateUsers.sql
+# Creates: Sources/Migrations/<unix_timestamp>_CreateUsers.sql
 ```
 
 ### Run migrations
@@ -726,7 +745,7 @@ spectro generate migration CreateUsers
 spectro migrate up
 
 # Rollback last migration
-spectro migrate down
+spectro migrate down --step 1
 
 # Rollback N migrations
 spectro migrate down --step 3
@@ -829,10 +848,12 @@ let config = DatabaseConfiguration(
     database: "production",
     maxConnectionsPerEventLoop: 8,
     numberOfThreads: System.coreCount,
-    tlsConfiguration: nil
+    tlsConfiguration: TLSConfiguration.makeClientConfiguration() // import NIOSSL
 )
 let spectro = try Spectro(configuration: config)
 ```
+
+A supplied `tlsConfiguration` requires TLS and retains its certificate verification settings; it never falls back to an unencrypted connection. The default `nil` disables TLS for local connections. Invalid TLS configuration fails initialization.
 
 ## Development
 
@@ -984,9 +1005,11 @@ SpectroError.transactionAlreadyStarted
 
 Nested transactions are not supported. Restructure your code so that all work happens within a single `transaction` closure.
 
-### Shutdown crashes (SIGBUS)
+### Connection lifecycle
 
 Always call `await spectro.shutdown()` before releasing the `Spectro` instance. The connection pool tracks in-flight operations and waits for them to complete before tearing down.
+
+Test crashes are failures. CI uses the exit status of `swift test`, including compilation errors and signals, rather than inferring success from partial output.
 
 ## License
 

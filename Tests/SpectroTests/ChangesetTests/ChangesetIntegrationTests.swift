@@ -6,9 +6,33 @@ extension DatabaseIntegrationTests {
     @Suite("Changeset Integration")
     struct ChangesetIntegrationTests {
 
+        @Test("Changesets persist custom column names through pooled and transaction repos")
+        func customColumnNames() async throws {
+            let repo = try await TestDatabase.sharedRepo()
+            try await repo.executeRawSQL("""
+                CREATE TABLE IF NOT EXISTS "test_column_overrides" (
+                    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "display_name" TEXT NOT NULL, "email" TEXT NOT NULL
+                )
+                """)
+            try await repo.executeRawSQL(#"TRUNCATE "test_column_overrides""#)
+            let input = Changeset<TestColumnOverride>.cast(nil,
+                params: ["name": "Alice", "email": "alice@test.com"], permitted: ["name", "email"])
+            let inserted = try await repo.insert(input)
+            #expect(inserted.name == "Alice")
+            let updated = try await repo.update(Changeset.cast(inserted, params: ["name": "Bob"], permitted: ["name"]))
+            #expect(updated.name == "Bob")
+            let transactionUser = try await repo.transaction { tx in
+                let inserted = try await tx.insert(input)
+                return try await tx.update(Changeset.cast(inserted, params: ["name": "Carol"], permitted: ["name"]))
+            }
+            #expect(transactionUser.name == "Carol")
+            let fetched = try await repo.get(TestColumnOverride.self, id: transactionUser.id)
+            #expect(fetched?.name == "Carol")
+        }
+
         private func withCleanTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-            let spectro = try TestDatabase.makeSpectro()
-            let repo = spectro.repository()
+            let repo = try await TestDatabase.sharedRepo()
             try await repo.executeRawSQL("""
                 CREATE TABLE IF NOT EXISTS "test_users" (
                     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,13 +44,7 @@ extension DatabaseIntegrationTests {
                 )
             """)
             try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
-            do {
-                try await body(repo)
-            } catch {
-                await spectro.shutdown()
-                throw error
-            }
-            await spectro.shutdown()
+            try await body(repo)
         }
 
         @Test("Insert valid changeset persists record with correct values")

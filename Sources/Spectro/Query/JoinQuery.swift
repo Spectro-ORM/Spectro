@@ -44,13 +44,9 @@ public struct JoinQuery<T: Schema, U: Schema>: Sendable {
         let builder = JoinQueryBuilder<T, U>()
         let queryCondition = condition(builder)
 
-        var newBaseQuery = baseQuery
-        if newBaseQuery.whereClause.isEmpty {
-            newBaseQuery.whereClause = queryCondition.sql
-        } else {
-            newBaseQuery.whereClause += " AND (\(queryCondition.sql))"
+        let newBaseQuery = baseQuery.where { _ in
+            QueryCondition(sql: "(\(queryCondition.sql))", parameters: queryCondition.parameters)
         }
-        newBaseQuery.parameters.append(contentsOf: queryCondition.parameters)
 
         return JoinQuery(baseQuery: newBaseQuery, joinedSchema: joinedSchema, joinClause: joinClause)
     }
@@ -84,29 +80,7 @@ public struct JoinQuery<T: Schema, U: Schema>: Sendable {
     // MARK: - Private
 
     private func buildJoinSQL() -> String {
-        let mainTable = T.tableName
-        let joinTable = U.tableName
-
-        var sql = "SELECT \(mainTable.quoted).*, \(joinTable.quoted).* FROM \(mainTable.quoted)"
-        sql += " \(joinClause.type.sql) \(joinTable.quoted) ON \(joinClause.condition)"
-
-        if !baseQuery.whereClause.isEmpty {
-            sql += " WHERE \(baseQuery.whereClause)"
-        }
-        if !baseQuery.orderFields.isEmpty {
-            let orderClause = baseQuery.orderFields
-                .map { "\($0.field) \($0.direction.sql)" }
-                .joined(separator: ", ")
-            sql += " ORDER BY \(orderClause)"
-        }
-        if let limit = baseQuery.limitValue {
-            sql += " LIMIT \(limit)"
-        }
-        if let offset = baseQuery.offsetValue {
-            sql += " OFFSET \(offset)"
-        }
-
-        return sql
+        baseQuery.buildSQL(selectClause: "\(T.tableName.quoted).*, \(U.tableName.quoted).*")
     }
 }
 

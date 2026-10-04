@@ -7,8 +7,7 @@ extension DatabaseIntegrationTests {
 struct MacroLoaderInjectionTests {
 
     private func withRelationshipTables(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "rel_users" (
@@ -38,13 +37,7 @@ struct MacroLoaderInjectionTests {
 
         try await repo.executeRawSQL("TRUNCATE \"rel_profiles\", \"rel_posts\", \"rel_users\"")
 
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - HasMany auto-injection

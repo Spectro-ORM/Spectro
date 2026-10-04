@@ -44,8 +44,10 @@
 - `ResponseCodable` (from Hummingbird) makes structs JSON-encodable as responses
 - Route params: `context.parameters.require("id", as: UUID.self)`
 
-## Swift Testing
-- `await #expect(throws: SomeError.self) { try await ... }` causes SIGBUS (signal 10) crashes on Swift 6.1/6.2. Use `do { try await ...; Issue.record("Expected error") } catch is SomeError { }` instead.
+## Error reporting and Swift Testing
+- Reproduced SIGBUS by formatting `SpectroError.invalidQuery` without a database: `debugDescription` interpolated `self` recursively. Use a non-recursive description. The full suite and previously disabled transaction tests pass after this fix; do not assume error-reporting crashes are Swift/NIO teardown bugs.
+- In a future chain, attach rollback failure handling before throwing the original transaction error. Otherwise a successful rollback is mislabeled as a rollback failure.
+- Never let CI ignore a nonzero `swift test` exit status or infer success from partial test output.
 
 ## SQL Generation
 - PostgreSQL SUM/MIN/MAX on INTEGER returns BIGINT, not DOUBLE — use CAST(... AS DOUBLE PRECISION) for aggregate results

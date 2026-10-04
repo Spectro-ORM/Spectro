@@ -62,20 +62,4 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           TEST_DB_NAME: spectro_test
-        run: |
-          # NIO EventLoopGroup teardown can SIGSEGV on Linux after all tests pass.
-          # Capture output and fail only on actual test failures.
-          set +e
-          swift test 2>&1 | tee test-output.log
-          TEST_EXIT=$?
-          set -e
-          # Check for actual test failures (not skipped tests).
-          # Swift Testing uses ✘ for both "failed" and "skipped", so match
-          # lines that say "failed" but not "skipped".
-          if grep '✘' test-output.log | grep -q 'failed'; then
-            echo "::error::Tests reported failures"
-            exit 1
-          fi
-          if [ $TEST_EXIT -ne 0 ]; then
-            echo "::warning::swift test exited with code $TEST_EXIT (likely NIO teardown crash) but all tests passed"
-          fi
+        run: swift test

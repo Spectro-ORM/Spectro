@@ -25,6 +25,7 @@ struct Rollback: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
+            try await manager.ensureMigrationTableExists()
             let applied = try await manager.getAppliedMigrations()
             let count = min(step ?? applied.count, applied.count)
             guard count > 0 else {

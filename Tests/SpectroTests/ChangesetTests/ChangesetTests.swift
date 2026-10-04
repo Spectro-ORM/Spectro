@@ -5,7 +5,81 @@ import Testing
 @Suite("Changeset")
 struct ChangesetTests {
 
+    private struct NumericInput: Schema {
+        static let tableName = "numeric_inputs"
+        @Column var doubleValue: Double = 0
+        @Column var floatValue: Float = 0
+        @Column var optionalNumber: Int? = nil
+        init() {}
+    }
+
     // MARK: - Cast
+
+    @Test("cast rejects invalid field types before numeric validation")
+    func castRejectsInvalidTypes() {
+        let cs = Changeset<TestUser>.cast(nil, params: ["age": "banana", "name": 42], permitted: ["age", "name"])
+            .validateNumber("age", greaterThan: 0)
+        #expect(!cs.isValid)
+        #expect(cs.errors["age"] == ["is invalid"])
+        #expect(cs.errors["name"] == ["is invalid"])
+        #expect(cs.changes.isEmpty)
+    }
+
+    @Test("cast converts external scalar strings to schema types")
+    func castScalarStrings() {
+        let id = UUID()
+        let cs = Changeset<TestUser>.cast(nil, params: [
+            "id": id.uuidString, "age": "42", "isActive": "false", "createdAt": "2026-10-04T16:00:00Z"
+        ], permitted: ["id", "age", "isActive", "createdAt"])
+        #expect(cs.isValid)
+        #expect(cs.getChange("id") as? UUID == id)
+        #expect(cs.getChange("age") as? Int == 42)
+        #expect(cs.getChange("isActive") as? Bool == false)
+        #expect(cs.getChange("createdAt") is Date)
+    }
+
+    @Test("cast drops unknown permitted fields and preserves nullable values")
+    func castUnknownAndNullable() {
+        let cs = Changeset<TestUserWithBio>.cast(nil, params: [
+            "bio": Optional<String>.none as any Sendable, "missing": "ignored"
+        ], permitted: ["bio", "missing"])
+        #expect(cs.isValid)
+        #expect(cs.changes.keys.sorted() == ["bio"])
+        let invalid = Changeset<TestUser>.cast(nil, params: ["age": Optional<Int>.none as any Sendable], permitted: ["age"])
+        #expect(!invalid.isValid)
+    }
+
+    @Test("cast distinguishes JSON booleans from numeric NSNumbers")
+    func castFoundationScalars() {
+        let invalid = Changeset<TestUser>.cast(nil, params: [
+            "age": NSNumber(value: true), "isActive": NSNumber(value: 1)
+        ], permitted: ["age", "isActive"])
+        #expect(invalid.errors.keys.sorted() == ["age", "isActive"])
+        #expect(invalid.changes.isEmpty)
+        let valid = Changeset<TestUser>.cast(nil, params: [
+            "age": NSNumber(value: 42), "isActive": NSNumber(value: true)
+        ], permitted: ["age", "isActive"])
+        #expect(valid.isValid)
+        #expect(valid.getChange("age") as? Int == 42)
+        #expect(valid.getChange("isActive") as? Bool == true)
+    }
+
+    @Test("cast handles finite floating values and optional numbers")
+    func castFloatingValues() {
+        let valid = Changeset<NumericInput>.cast(nil, params: [
+            "doubleValue": "1.5", "floatValue": Float(2.5), "optionalNumber": Optional<Int>.some(42) as any Sendable
+        ], permitted: ["doubleValue", "floatValue", "optionalNumber"])
+        #expect(valid.isValid)
+        #expect(valid.getChange("doubleValue") as? Double == 1.5)
+        #expect(valid.getChange("floatValue") as? Float == 2.5)
+        #expect(valid.getChange("optionalNumber") as? Int == 42)
+
+        for value: any Sendable in [Double.infinity, Double.nan, "NaN", "1e999", NSNumber(value: true)] {
+            let invalid = Changeset<NumericInput>.cast(nil,
+                params: ["doubleValue": value, "floatValue": value], permitted: ["doubleValue", "floatValue"])
+            #expect(invalid.errors.keys.sorted() == ["doubleValue", "floatValue"])
+        }
+    }
 
     @Test("cast filters to permitted fields only")
     func castPermitted() {

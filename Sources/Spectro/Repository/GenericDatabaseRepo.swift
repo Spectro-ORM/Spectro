@@ -227,7 +227,7 @@ public actor GenericDatabaseRepo: Repo {
 
         let knownColumns = Set(metadata.fields.map { $0.databaseName })
         for (column, value) in changes {
-            let dbColumn = column.snakeCase()
+            let dbColumn = metadata.fields.first { $0.name == column }?.databaseName ?? column.snakeCase()
             guard knownColumns.contains(dbColumn) else {
                 throw SpectroError.invalidSchema(reason: "Unknown column '\(column)' on \(T.self)")
             }
@@ -352,7 +352,7 @@ public actor GenericDatabaseRepo: Repo {
         var columns: [String] = []
         var values: [PostgresData] = []
         for (field, value) in changes {
-            let dbColumn = field.snakeCase()
+            let dbColumn = metadata.fields.first { $0.name == field }?.databaseName ?? field.snakeCase()
             guard knownColumns.contains(dbColumn) else {
                 throw SpectroError.invalidSchema(reason: "Unknown column '\(field)' on \(T.self)")
             }

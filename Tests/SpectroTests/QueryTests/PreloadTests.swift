@@ -8,8 +8,7 @@ extension DatabaseIntegrationTests {
 struct PreloadTests {
 
     private func withRelationshipTables(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "rel_users" (
@@ -70,13 +69,7 @@ struct PreloadTests {
         let _ = try await repo.insert(RelUserTag(relUserId: bob.id, relTagId: tagSwift.id))
         let _ = try await repo.insert(RelUserTag(relUserId: bob.id, relTagId: tagDB.id))
 
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - HasMany

@@ -9,8 +9,7 @@ struct NonUUIDPrimaryKeyTests {
     // MARK: - Int PK Table Setup
 
     private func withIntPKTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("DROP TABLE IF EXISTS \"int_pk_items\"")
         try await repo.executeRawSQL("""
             CREATE TABLE "int_pk_items" (
@@ -18,20 +17,13 @@ struct NonUUIDPrimaryKeyTests {
                 "name" TEXT NOT NULL DEFAULT ''
             )
         """)
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - String PK Table Setup
 
     private func withStringPKTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "string_pk_items" (
                 "id" TEXT PRIMARY KEY,
@@ -39,13 +31,7 @@ struct NonUUIDPrimaryKeyTests {
             )
         """)
         try await repo.executeRawSQL("TRUNCATE \"string_pk_items\"")
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - Int PK CRUD Tests

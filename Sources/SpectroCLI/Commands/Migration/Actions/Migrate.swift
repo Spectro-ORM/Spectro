@@ -24,6 +24,7 @@ struct Migrate: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
+            try await manager.ensureMigrationTableExists()
             let pending = try await manager.getPendingMigrations()
             guard !pending.isEmpty else {
                 SpectroUI.noora.info(.alert(

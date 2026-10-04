@@ -11,8 +11,7 @@ extension DatabaseIntegrationTests {
         private func withRelationshipTables(
             _ body: (GenericDatabaseRepo) async throws -> Void
         ) async throws {
-            let spectro = try TestDatabase.makeSpectro()
-            let repo = spectro.repository()
+            let repo = try await TestDatabase.sharedRepo()
             try await repo.executeRawSQL("""
                 CREATE TABLE IF NOT EXISTS "test_users" (
                     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,20 +33,13 @@ extension DatabaseIntegrationTests {
             """)
             try await repo.executeRawSQL(#"TRUNCATE "test_posts""#)
             try await repo.executeRawSQL(#"TRUNCATE "test_users" CASCADE"#)
-            do {
-                try await body(repo)
-            } catch {
-                await spectro.shutdown()
-                throw error
-            }
-            await spectro.shutdown()
+            try await body(repo)
         }
 
         private func withCleanTable(
             _ body: (GenericDatabaseRepo) async throws -> Void
         ) async throws {
-            let spectro = try TestDatabase.makeSpectro()
-            let repo = spectro.repository()
+            let repo = try await TestDatabase.sharedRepo()
             try await repo.executeRawSQL("""
                 CREATE TABLE IF NOT EXISTS "test_users" (
                     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,13 +51,7 @@ extension DatabaseIntegrationTests {
                 )
             """)
             try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
-            do {
-                try await body(repo)
-            } catch {
-                await spectro.shutdown()
-                throw error
-            }
-            await spectro.shutdown()
+            try await body(repo)
         }
 
         // MARK: - Raw SQL via Repo protocol in transactions
@@ -140,15 +126,11 @@ extension DatabaseIntegrationTests {
             }
         }
 
-        @Test("update with unknown column throws inside transaction",
-              .disabled("Swift 6 SIGBUS: throwing invalidSchema inside async transaction + NIO bridge crashes the runtime. Column validation is covered by updateUnknownColumnThrows."))
+        @Test("update with unknown column throws inside transaction")
         func updateUnknownColumnInTransactionThrows() async throws {
             try await withCleanTable { repo in
                 let user = try await repo.insert(TestUser(name: "Alice", email: "a@test.com", age: 30))
 
-                // Catch the error INSIDE the transaction closure to avoid
-                // Swift 6 SIGBUS crash when errors propagate through the
-                // async transaction boundary + NIO futures bridging.
                 let caughtInvalidSchema: Bool = try await repo.transaction { tx in
                     do {
                         let _ = try await tx.update(

@@ -34,6 +34,13 @@ public final class MigrationManager: @unchecked Sendable {
     }
 
     public func getMigrationStatus() async throws -> [MigrationRecord] {
+        // Inspecting status must not require DDL privileges, including on a fresh database.
+        let exists = try await connection.executeQuery(
+            sql: "SELECT to_regclass('schema_migrations') IS NOT NULL AS present",
+            resultMapper: { $0.makeRandomAccess()[data: "present"].bool ?? false }
+        ).first ?? false
+        guard exists else { return [] }
+
         let sql = """
             SELECT version, name, applied_at, status
             FROM schema_migrations
@@ -110,12 +117,11 @@ public final class MigrationManager: @unchecked Sendable {
         let pending = try await getPendingMigrations()
         for migration in pending {
             let content = try loadMigrationContent(from: migration)
-            try await withTransaction { db in
-                let stmts = try SQLStatementParser.parse(content.up)
-                for stmt in stmts { try await db.executeUpdate(sql: stmt) }
-                return ()
+            let statements = try SQLStatementParser.parse(content.up)
+            try await connection.transaction { transaction in
+                for statement in statements { try await transaction.execute(statement) }
+                try await self.updateMigrationStatus(migration, status: .completed, using: transaction)
             }
-            try await updateMigrationStatus(migration, status: .completed)
         }
     }
 
@@ -125,12 +131,11 @@ public final class MigrationManager: @unchecked Sendable {
         let toRollback = Array(applied.suffix(steps ?? applied.count).reversed())
         for migration in toRollback {
             let content = try loadMigrationContent(from: migration)
-            try await withTransaction { db in
-                let stmts = try SQLStatementParser.parse(content.down)
-                for stmt in stmts { try await db.executeUpdate(sql: stmt) }
-                return ()
+            let statements = try SQLStatementParser.parse(content.down)
+            try await connection.transaction { transaction in
+                for statement in statements { try await transaction.execute(statement) }
+                try await self.updateMigrationStatus(migration, status: .pending, using: transaction)
             }
-            try await updateMigrationStatus(migration, status: .pending)
         }
     }
 
@@ -151,22 +156,16 @@ public final class MigrationManager: @unchecked Sendable {
 
     // MARK: - Private
 
-    private func withTransaction<T: Sendable>(
-        _ operation: @Sendable @escaping (DatabaseConnection) async throws -> T
-    ) async throws -> T {
-        try await connection.transaction { [connection] _ in
-            try await operation(connection)
-        }
-    }
-
-    private func updateMigrationStatus(_ migration: MigrationFile, status: MigrationStatus) async throws {
+    private func updateMigrationStatus(
+        _ migration: MigrationFile, status: MigrationStatus, using transaction: TransactionContext
+    ) async throws {
         let sql = """
             INSERT INTO schema_migrations (version, name, status)
             VALUES ($1, $2, $3::migration_status)
             ON CONFLICT(version)
               DO UPDATE SET status=$3::migration_status, applied_at=CURRENT_TIMESTAMP;
             """
-        try await connection.executeUpdate(sql: sql, parameters: [
+        try await transaction.execute(sql, [
             PostgresData(string: migration.version),
             PostgresData(string: migration.name),
             PostgresData(string: status.rawValue)

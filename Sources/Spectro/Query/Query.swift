@@ -16,7 +16,11 @@ public struct Query<T: Schema>: Sendable {
     private let schema: T.Type
     internal let executor: any QueryExecutor
     internal var whereClause: String = ""
-    internal var parameters: [PostgresData] = []
+    private var whereParameters: [PostgresData] = []
+    // Bindings follow SQL clause order, independently of builder call order.
+    internal var parameters: [PostgresData] {
+        joins.flatMap(\.parameters) + whereParameters
+    }
     internal var orderFields: [OrderByClause] = []
     internal var limitValue: Int?
     internal var offsetValue: Int?
@@ -50,7 +54,7 @@ public struct Query<T: Schema>: Sendable {
             copy.whereClause += " AND "
         }
         copy.whereClause += queryCondition.sql
-        copy.parameters.append(contentsOf: queryCondition.parameters)
+        copy.whereParameters.append(contentsOf: queryCondition.parameters)
 
         return copy
     }
@@ -70,7 +74,6 @@ public struct Query<T: Schema>: Sendable {
             condition: joinCondition.sql,
             parameters: joinCondition.parameters
         ))
-        copy.parameters.append(contentsOf: joinCondition.parameters)
         return copy
     }
 
@@ -87,7 +90,6 @@ public struct Query<T: Schema>: Sendable {
             condition: joinCondition.sql,
             parameters: joinCondition.parameters
         ))
-        copy.parameters.append(contentsOf: joinCondition.parameters)
         return copy
     }
 
@@ -104,7 +106,6 @@ public struct Query<T: Schema>: Sendable {
             condition: joinCondition.sql,
             parameters: joinCondition.parameters
         ))
-        copy.parameters.append(contentsOf: joinCondition.parameters)
         return copy
     }
 
@@ -123,7 +124,6 @@ public struct Query<T: Schema>: Sendable {
             condition: firstJoin.sql,
             parameters: firstJoin.parameters
         ))
-        copy.parameters.append(contentsOf: firstJoin.parameters)
 
         copy.joins.append(JoinClause(
             type: .inner,
@@ -131,7 +131,6 @@ public struct Query<T: Schema>: Sendable {
             condition: secondJoin.sql,
             parameters: secondJoin.parameters
         ))
-        copy.parameters.append(contentsOf: secondJoin.parameters)
 
         return copy
     }
@@ -435,15 +434,15 @@ public struct Query<T: Schema>: Sendable {
 
     // MARK: - SQL Building
 
-    internal func buildSQL() -> String {
+    internal func buildSQL(selectClause: String? = nil) -> String {
         let table = T.tableName.quoted
-        let selectClause = buildSelectClause()
+        let selection = selectClause ?? buildSelectClause()
         let joinClause = buildJoinClause()
         let orderClause = buildOrderClause()
         let limitClause = buildLimitClause()
         let effectiveWhere = buildWhereClause()
 
-        var sql = "SELECT \(selectClause) FROM \(table)"
+        var sql = "SELECT \(selection) FROM \(table)"
 
         if !joinClause.isEmpty { sql += " \(joinClause)" }
         if !effectiveWhere.isEmpty { sql += " WHERE \(effectiveWhere)" }
@@ -469,7 +468,8 @@ public struct Query<T: Schema>: Sendable {
     private func buildWhereClause() -> String {
         if includeSoftDeleted { return whereClause }
         guard let sdf = T.softDeleteColumn else { return whereClause }
-        let sdFilter = "\(sdf.quoted) IS NULL"
+        let column = joins.isEmpty ? sdf.quoted : "\(T.tableName.quoted).\(sdf.quoted)"
+        let sdFilter = "\(column) IS NULL"
         return whereClause.isEmpty ? sdFilter : "\(sdFilter) AND \(whereClause)"
     }
 

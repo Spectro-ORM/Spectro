@@ -1,5 +1,19 @@
 # Spectro ORM - Current Sprint
 
+## Correctness follow-up — COMPLETE (2026-10-04)
+
+- [x] Reproduce migration DDL escaping rollback in an isolated local database.
+- [x] Remove recursive error formatting and distinguish rollback success from failure; restore both disabled transaction tests.
+- [x] Execute migration SQL and status updates on the same transaction connection; test failure and retry in both directions, tracking failures, deferred commit failures, and a single-connection pool.
+- [x] Correct query binding order when joins follow filters, including typed joins; qualify joined soft-delete filters.
+- [x] Validate changeset input types against schema fields before persistence; distinguish Foundation booleans from numbers and persist custom column names through both repositories.
+- [x] Honor the supplied TLS configuration; reject invalid TLS settings before allocating NIO threads.
+- [x] Make CI propagate the actual swift test exit status; verify the pending shared test-pool refactor.
+- [x] Initialize fresh migration databases for up/down while keeping status read-only; cover all three commands through the real CLI.
+- [x] Independent review complete with no remaining findings in this change; full PostgreSQL-backed suite passes.
+
+Verification: 352 tests in 34 suites passed, exit 0, using Swift 6.4 on macOS and a fresh local PostgreSQL database. The original CLI CREATE TABLE / division-by-zero reproduction now exits 1 without persisting DDL or tracking; correcting the SQL and retrying, then rolling back, succeeds. Fresh verification databases were removed. `git diff --check` and CI YAML validation passed. Linux/Swift 6.0 CI was not run locally because Docker is not running; no hosted CI result is claimed. Existing typed-join row-decoding collisions and concurrent migration runners remain separate follow-ups.
+
 ## Schema DSL Improvements — COMPLETE
 
 ### Phase 1: Column Name Overrides + FK Binding + Macro Refactor (backward compatible)

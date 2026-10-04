@@ -164,7 +164,8 @@ extension SpectroError: CustomDebugStringConvertible {
         case .queryExecutionFailed(let sql, let error):
             return "SpectroError.queryExecutionFailed(sql: \"\(sql)\", error: \(error))"
         default:
-            return "SpectroError.\(self)"
+            // Interpolating self here re-enters debugDescription until the stack overflows.
+            return "SpectroError: \(errorDescription ?? "Unknown error")"
         }
     }
 }

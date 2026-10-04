@@ -74,7 +74,7 @@ public actor SchemaRegistry {
     public func register<T: Schema>(_ type: T.Type) -> SchemaMetadata {
         let typeName = String(describing: type)
         if let existing = registry[typeName] { return existing }
-        let metadata = extractMetadata(from: type)
+        let metadata = Self.extractMetadata(from: type)
         registry[typeName] = metadata
         return metadata
     }
@@ -83,7 +83,8 @@ public actor SchemaRegistry {
         registry[String(describing: type)]
     }
 
-    private func extractMetadata<T: Schema>(from type: T.Type) -> SchemaMetadata {
+    // Pure inspection is also used by synchronous Changeset.cast.
+    static func extractMetadata<T: Schema>(from type: T.Type) -> SchemaMetadata {
         let instance = T()
         let mirror = Mirror(reflecting: instance)
         let fields = mirror.children.compactMap { child -> FieldInfo? in
@@ -93,7 +94,7 @@ public actor SchemaRegistry {
         return SchemaMetadata(tableName: T.tableName, fields: fields)
     }
 
-    private func extractFieldInfo(label: String, value: Any) -> FieldInfo? {
+    private static func extractFieldInfo(label: String, value: Any) -> FieldInfo? {
         let fieldName = label.hasPrefix("_") ? String(label.dropFirst()) : label
         let defaultDBName = fieldName.snakeCase()
 

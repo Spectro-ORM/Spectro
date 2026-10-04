@@ -8,8 +8,7 @@ extension DatabaseIntegrationTests {
 struct AggregateQueryTests {
 
     private func withSeededTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "test_users" (
                 "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,18 +23,11 @@ struct AggregateQueryTests {
         let _ = try await repo.insert(TestUser(name: "Alice", email: "alice@test.com", age: 30, isActive: true))
         let _ = try await repo.insert(TestUser(name: "Bob", email: "bob@test.com", age: 25, isActive: true))
         let _ = try await repo.insert(TestUser(name: "Charlie", email: "charlie@test.com", age: 35, isActive: false))
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     private func withEmptyTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "test_users" (
                 "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,13 +39,7 @@ struct AggregateQueryTests {
             )
         """)
         try await repo.executeRawSQL("TRUNCATE \"test_users\"")
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - Sum

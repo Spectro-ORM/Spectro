@@ -7,8 +7,7 @@ extension DatabaseIntegrationTests {
 struct SoftDeleteTests {
 
     private func withCleanTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "soft_users" (
                 "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,18 +17,11 @@ struct SoftDeleteTests {
             )
         """)
         try await repo.executeRawSQL(#"TRUNCATE "soft_users""#)
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     private func withHardDeleteTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "test_users" (
                 "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,13 +33,7 @@ struct SoftDeleteTests {
             )
         """)
         try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     @Test("delete() sets deleted_at instead of hard-deleting the row")

@@ -9,10 +9,9 @@ import SpectroCommon
 struct QueryOperatorTests {
 
     private func withQuery(_ body: (Query<TestUser>) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let query = await spectro.repository().query(TestUser.self)
+        let repo = try await TestDatabase.sharedRepo()
+        let query = repo.query(TestUser.self)
         try await body(query)
-        await spectro.shutdown()
     }
 
     // MARK: - Equality Operators

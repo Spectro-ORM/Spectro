@@ -20,8 +20,7 @@ struct LazyLoaderUnitTests {
 
         // We need a GenericDatabaseRepo to call load(using:), but the loader is nil
         // so it should throw before any database access happens.
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         do {
             let _ = try await relation.load(using: repo)
@@ -34,8 +33,6 @@ struct LazyLoaderUnitTests {
                 Issue.record("Expected .notImplemented but got \(error)")
             }
         }
-
-        await spectro.shutdown()
     }
 
     @Test("withLoader creates a new relation that has a loader")
@@ -99,8 +96,7 @@ struct LazyLoaderUnitTests {
 
         // We need a repo to call load(using:) -- create a real one even though
         // the mock loader ignores it.
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         let result = try await relation.load(using: repo)
 
@@ -113,8 +109,6 @@ struct LazyLoaderUnitTests {
         }
         #expect(relation.isLoaded)
         #expect(relation.value == ["post1", "post2"])
-
-        await spectro.shutdown()
     }
 
     @Test("load returns cached value when already loaded")
@@ -134,8 +128,7 @@ struct LazyLoaderUnitTests {
                 return ["a", "b"]
             }
 
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         // First load
         let first = try await relation.load(using: repo)
@@ -147,8 +140,6 @@ struct LazyLoaderUnitTests {
 
         let count = await counter.value
         #expect(count == 1, "Loader should only be called once; cached value should be returned on second call")
-
-        await spectro.shutdown()
     }
 
     @Test("load sets error state on loader failure")
@@ -165,8 +156,7 @@ struct LazyLoaderUnitTests {
                 throw SpectroError.internalError("simulated failure")
             }
 
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         do {
             let _ = try await relation.load(using: repo)
@@ -185,8 +175,6 @@ struct LazyLoaderUnitTests {
         } else {
             Issue.record("Expected state to be .error after failed load, got \(relation.state)")
         }
-
-        await spectro.shutdown()
     }
 }
 
@@ -203,8 +191,7 @@ extension DatabaseIntegrationTests {
 struct LazyLoaderIntegrationTests {
 
     private func withRelationshipTables(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
 
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "rel_users" (
@@ -234,13 +221,7 @@ struct LazyLoaderIntegrationTests {
 
         try await repo.executeRawSQL("TRUNCATE \"rel_profiles\", \"rel_posts\", \"rel_users\"")
 
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     // MARK: - hasManyLoader

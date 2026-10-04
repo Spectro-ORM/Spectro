@@ -23,17 +23,16 @@ public actor DatabaseConnection {
 
     public init(configuration: DatabaseConfiguration) throws {
         self.configuration = configuration
-        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: configuration.numberOfThreads)
-
         let sqlConfig = SQLPostgresConfiguration(
             hostname: configuration.hostname,
             port: configuration.port,
             username: configuration.username,
             password: configuration.password,
             database: configuration.database,
-            tls: .disable
+            tls: try configuration.tlsConfiguration.map { .require(try NIOSSLContext(configuration: $0)) } ?? .disable
         )
 
+        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: configuration.numberOfThreads)
         let source = PostgresConnectionSource(sqlConfiguration: sqlConfig)
 
         self.pools = EventLoopGroupConnectionPool(
@@ -156,13 +155,13 @@ public actor DatabaseConnection {
                             connection.query("COMMIT").map { _ in result }
                         }
                         .flatMapError { error in
-                            connection.query("ROLLBACK").flatMapThrowing { _ in
-                                throw SpectroError.transactionFailed(underlying: error)
-                            }.flatMapErrorThrowing { rollbackError in
+                            connection.query("ROLLBACK").flatMapErrorThrowing { rollbackError in
                                 throw SpectroError.transactionAndRollbackFailed(
                                     original: error,
                                     rollback: rollbackError
                                 )
+                            }.flatMapThrowing { _ in
+                                throw SpectroError.transactionFailed(underlying: error)
                             }
                         }
                     }

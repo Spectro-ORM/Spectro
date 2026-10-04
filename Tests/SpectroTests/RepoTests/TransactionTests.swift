@@ -7,8 +7,7 @@ extension DatabaseIntegrationTests {
     struct TransactionTests {
 
         private func withCleanTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-            let spectro = try TestDatabase.makeSpectro()
-            let repo = spectro.repository()
+            let repo = try await TestDatabase.sharedRepo()
             try await repo.executeRawSQL("""
                 CREATE TABLE IF NOT EXISTS "test_users" (
                     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,13 +19,7 @@ extension DatabaseIntegrationTests {
                 )
             """)
             try await repo.executeRawSQL(#"TRUNCATE "test_users""#)
-            do {
-                try await body(repo)
-            } catch {
-                await spectro.shutdown()
-                throw error
-            }
-            await spectro.shutdown()
+            try await body(repo)
         }
 
         @Test("Committed transaction persists data")
@@ -126,8 +119,7 @@ extension DatabaseIntegrationTests {
             }
         }
 
-        @Test("Nested transaction throws transactionAlreadyStarted",
-              .disabled("Swift 6 SIGBUS: calling transaction on existential `any Repo` inside async NIO bridge crashes the runtime. TransactionRepo.transaction() correctly throws transactionAlreadyStarted."))
+        @Test("Nested transaction throws transactionAlreadyStarted")
         func nestedTransactionThrows() async throws {
             try await withCleanTable { repo in
                 do {
@@ -137,9 +129,12 @@ extension DatabaseIntegrationTests {
                         }
                     }
                     Issue.record("Nested transaction should have thrown")
-                } catch {
-                    let desc = String(describing: error)
-                    #expect(desc.contains("transactionAlreadyStarted") || desc.contains("transactionFailed"))
+                } catch let error as SpectroError {
+                    guard case .transactionFailed(let underlying) = error,
+                          case SpectroError.transactionAlreadyStarted = underlying else {
+                        Issue.record("Expected transactionAlreadyStarted wrapped in transactionFailed, got \(error)")
+                        return
+                    }
                 }
             }
         }

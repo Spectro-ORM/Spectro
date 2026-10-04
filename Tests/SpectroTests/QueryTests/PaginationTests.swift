@@ -7,8 +7,7 @@ extension DatabaseIntegrationTests {
 struct PaginationTests {
 
     private func withSeededTable(_ count: Int = 5, _ body: (GenericDatabaseRepo) async throws -> Void) async throws {
-        let spectro = try TestDatabase.makeSpectro()
-        let repo = spectro.repository()
+        let repo = try await TestDatabase.sharedRepo()
         try await repo.executeRawSQL("""
             CREATE TABLE IF NOT EXISTS "test_users" (
                 "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -25,13 +24,7 @@ struct PaginationTests {
                 let _ = try await repo.insert(TestUser(name: "User\(i)", email: "user\(i)@test.com", age: 20 + i))
             }
         }
-        do {
-            try await body(repo)
-        } catch {
-            await spectro.shutdown()
-            throw error
-        }
-        await spectro.shutdown()
+        try await body(repo)
     }
 
     @Test("First page returns correct slice and metadata")
