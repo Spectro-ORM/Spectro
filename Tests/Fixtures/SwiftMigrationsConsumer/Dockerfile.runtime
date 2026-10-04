@@ -1,0 +1,10 @@
+# The builder and runtime library versions must match.
+FROM swift:6.0 AS swift-runtime
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libgcc-s1 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=swift-runtime /usr/lib/swift/linux/*.so /usr/lib/swift/linux/
+ENV LD_LIBRARY_PATH=/usr/lib/swift/linux
+COPY . /artifact/
+WORKDIR /tmp
+ENTRYPOINT ["/artifact/FixtureMigrations"]

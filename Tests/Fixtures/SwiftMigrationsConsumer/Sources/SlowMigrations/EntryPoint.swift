@@ -2,8 +2,8 @@ import SpectroMigrations
 import FixtureDefinitions
 
 @main
-struct FixtureMigrations {
+struct SlowMigrations {
     static func main() async {
-        await MigrationCommand.main(migrations: FixtureCatalog.full)
+        await MigrationCommand.main(migrations: FixtureCatalog.slow)
     }
 }

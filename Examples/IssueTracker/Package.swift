@@ -15,5 +15,10 @@ let package = Package(
             .product(name: "Peregrine", package: "swift-peregrine"),
             .product(name: "PostgresNIO", package: "postgres-nio"),
         ]),
+        .executableTarget(
+            name: "IssueTrackerMigrations",
+            dependencies: [.product(name: "SpectroMigrations", package: "Spectro")],
+            resources: [.copy("LegacySQL")]
+        ),
     ]
 )

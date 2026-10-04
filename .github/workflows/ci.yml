@@ -38,6 +38,9 @@ jobs:
       - name: Run tests
         run: swift test --jobs 4
 
+      - name: Run copied migration artifact acceptance
+        run: python3 scripts/migrations_acceptance.py
+
       - name: Setup Swift for Peregrine dependencies
         uses: swift-actions/setup-swift@364295d9c23900ce04d4e5cc708387921b4e50f9 # v3, Swiftly-backed installer
         with:
@@ -97,4 +100,50 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           TEST_DB_NAME: spectro_test
-        run: swift test --jobs 4
+        run: |
+          swift build --product spectro
+          swift test --jobs 4
+
+  migrations-deployment:
+    name: Migration deployment without a compiler (Linux)
+    runs-on: ubuntu-latest
+    env:
+      DB_HOST: "127.0.0.1"
+      DB_PORT: "55432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@364295d9c23900ce04d4e5cc708387921b4e50f9
+        with:
+          swift-version: "6.0.3"
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Build and validate release artifacts
+        run: |
+          python3 scripts/migrations_acceptance.py \
+            --build-root "$RUNNER_TEMP/migrations-build" \
+            --artifact-dir "$RUNNER_TEMP/migrations-artifact"
+      - name: Package only binaries, resources, and runtime libraries
+        run: |
+          docker build -t spectro-migrations-runtime \
+            -f Tests/Fixtures/SwiftMigrationsConsumer/Dockerfile.runtime \
+            "$RUNNER_TEMP/migrations-artifact"
+      - name: Exercise migrations with no compiler or source checkout in the container
+        run: |
+          python3 scripts/migrations_acceptance.py --skip-build \
+            --build-root "$RUNNER_TEMP/migrations-build" \
+            --runtime-image spectro-migrations-runtime --docker-network host

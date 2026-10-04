@@ -73,6 +73,7 @@ def main():
             subprocess.run([*command, "--jobs", str(args.jobs)], cwd=ROOT, check=True)
     cli = executable_path(cli_build, "spectro", env.get("SPECTRO_CLI_PATH"))
     app = executable_path(app_build, "IssueTracker", env.get("SPECTRO_EXAMPLE_PATH"))
+    swift_migrations = executable_path(app_build, "IssueTrackerMigrations", env.get("SPECTRO_EXAMPLE_MIGRATIONS_PATH"))
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -208,6 +209,27 @@ def main():
             start()
             assert sorted(request("/projects")[1], key=lambda row: row["slug"]) == before
             print("PASS: populated migration, rollback/reapply, and HTTP restart persistence", flush=True)
+
+            stop()
+            def compiled_migrations(*arguments):
+                result = subprocess.run([str(swift_migrations), *arguments], cwd=work, env=env,
+                                        text=True, capture_output=True, timeout=45)
+                if result.returncode:
+                    raise RuntimeError(result.stdout + result.stderr)
+            compiled_migrations("up")
+            assert sql("SELECT count(*) FROM issues WHERE archived = false") == "3"
+            assert sql("SELECT to_regclass('issues_unarchived_index') IS NOT NULL") == "t"
+            assert sql("SELECT count(*) FROM schema_migrations WHERE status = 'completed'") == "3"
+            start()
+            assert sorted(request("/projects")[1], key=lambda row: row["slug"]) == before
+            stop()
+            compiled_migrations("down", "--step", "1")
+            assert sql("SELECT count(*) FROM issues") == "3"
+            assert sql("SELECT count(*) FROM information_schema.columns WHERE table_name='issues' AND column_name='archived'") == "0"
+            compiled_migrations("up")
+            start()
+            assert sorted(request("/projects")[1], key=lambda row: row["slug"]) == before
+            print("PASS: compiled Swift migration, unchanged SQL history, rollback/reapply and HTTP restart", flush=True)
         except Exception:
             if (work / "server.log").exists():
                 print((work / "server.log").read_text()[-6000:])

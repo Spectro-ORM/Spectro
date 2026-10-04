@@ -12,6 +12,11 @@ import Glibc
 public enum MigrationCommand {
     public static func main(migrations: MigrationRegistry,
                             configuration: (@Sendable () throws -> DatabaseConfiguration)? = nil) async {
+        // Linux PID 1 ignores default termination dispositions. These handlers
+        // also work when the runner is the container entry point. _exit is signal-safe;
+        // closing the process sockets lets PostgreSQL roll back and release ownership.
+        signal(SIGINT) { _ in _exit(130) }
+        signal(SIGTERM) { _ in _exit(143) }
         let code = await run(arguments: Array(CommandLine.arguments.dropFirst()), migrations: migrations, configuration: configuration)
         exit(code)
     }
