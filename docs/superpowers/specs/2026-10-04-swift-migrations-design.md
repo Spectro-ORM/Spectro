@@ -1,6 +1,6 @@
 # Swift migrations: distribution and DSL proposal
 
-Status: proposed design for review; no migration implementation is authorized or included.
+Status: approved by the user; implementation in progress on the isolated branch.
 Date: 2026-10-04
 Baseline: main and the peeled 2.0.0 tag both resolve to b13c41cdda2e73fb2a7000399c7d8f450ab05f0e, verified against origin.
 Design branch: codex/migrations-design.
