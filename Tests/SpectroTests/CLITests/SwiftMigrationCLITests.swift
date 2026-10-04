@@ -9,6 +9,12 @@ import Glibc
 @Suite("Swift migration CLI", .serialized)
 struct SwiftMigrationCLITests {
     private struct Result { let code: Int32; let output: String }
+    private var executableURL: URL {
+        if let override = ProcessInfo.processInfo.environment["SPECTRO_CLI_PATH"] {
+            return URL(fileURLWithPath: override)
+        }
+        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".build/debug/spectro")
+    }
     private func fixture() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("spectro project \(UUID())", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -16,13 +22,11 @@ struct SwiftMigrationCLITests {
         return root
     }
     private func run(_ arguments: [String], at root: URL, env: [String: String] = [:]) async throws -> Result {
-        let binary = ProcessInfo.processInfo.environment["SPECTRO_CLI_PATH"]
-            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".build/debug/spectro").path
         let output = root.appendingPathComponent("output-\(UUID()).txt")
         FileManager.default.createFile(atPath: output.path, contents: nil)
         let handle = try FileHandle(forWritingTo: output)
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: binary)
+        process.executableURL = executableURL
         process.arguments = arguments
         process.currentDirectoryURL = root
         process.standardOutput = handle
@@ -167,7 +171,7 @@ struct SwiftMigrationCLITests {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stub.path)
         let pidFile = root.appendingPathComponent("pid")
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["SPECTRO_CLI_PATH"]))
+        process.executableURL = executableURL
         process.arguments = ["migrate", "up"]
         process.currentDirectoryURL = root
         process.environment = ProcessInfo.processInfo.environment.merging(
@@ -194,4 +198,3 @@ struct SwiftMigrationCLITests {
     }
 
 }
-

@@ -1,6 +1,6 @@
 # Spectro ORM - Current Sprint
 
-## Swift migration distribution and DSL — REVIEWING (2026-10-04)
+## Swift migration distribution and DSL — COMPLETE (2026-10-05)
 
 - [x] Verify main, origin/main, and the 2.0.0 tag resolve to b13c41c.
 - [x] Isolate the proposal on codex/migrations-design without changing the main checkout.
@@ -10,8 +10,8 @@
 - [x] Check document links, descriptor JSON, and the Swift syntax of the nine design examples; the six DSL declarations now also compile through public API tests on Swift 6.0 and 6.4.
 - [x] User approved the proposed DSL and implementation plan.
 - [x] Implement the library, executable contract, CLI, deployment acceptance, and documentation.
-- [x] Pass 410 tests on macOS and Linux, copied release artifacts, the compiler-free runtime container, and original plus extended HTTP acceptance.
-- [ ] Complete the independent whole-branch review and resolve actionable findings.
+- [x] Pass 413 tests on macOS and Linux, copied release artifacts, the compiler-free runtime container, and original plus extended HTTP acceptance.
+- [x] Complete the independent whole-branch review; reproduce and fix SQL comment boundaries, CLI test environment assumptions, and down preview ordering, then repeat affected validation.
 
 Implementation remains on the isolated branch. See the [validation report](../docs/superpowers/reports/2026-10-04-swift-migrations-validation.md) and [adoption guide](../docs/MIGRATIONS.md). Hosted CI is configured but has not run for this branch.
 

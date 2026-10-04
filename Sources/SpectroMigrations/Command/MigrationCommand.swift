@@ -43,7 +43,7 @@ public enum MigrationCommand {
                         throw ValidationError("Unknown migration ID: \(id)")
                     }
                     selected = [match]
-                } else { selected = catalog }
+                } else { selected = plan.direction == .down ? Array(catalog.reversed()) : catalog }
                 // Preflight the whole preview before printing a partial down plan.
                 let scripts = try selected.map { entry -> (String, String) in
                     if plan.direction == .up { return (entry.version, entry.upSQL) }

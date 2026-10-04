@@ -46,10 +46,7 @@ internal enum PostgresMigrationRenderer {
             return String(number)
         case .boolean(let boolean): return boolean ? "TRUE" : "FALSE"
         case .sql(let sql):
-            guard !sql.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw MigrationPlanningError(reason: "A SQL default expression must not be empty")
-            }
-            return sql
+            return try expression(sql)
         }
     }
 
@@ -57,7 +54,8 @@ internal enum PostgresMigrationRenderer {
         guard !sql.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !sql.contains("\0") else {
             throw MigrationPlanningError(reason: "A trusted SQL expression must not be empty or contain NUL")
         }
-        return sql
+        // Closing parentheses, commas and constraints must survive a trailing -- comment.
+        return sql + "\n"
     }
 
     static func referenceName(_ column: ColumnDefinition, table: String) -> String? {

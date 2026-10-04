@@ -27,7 +27,7 @@ struct ControlFlowTests {
         #expect(down.contains("CREATE TABLE \"old\""))
         #expect(down.contains("SELECT 'nested down'"))
         #expect(!down.contains("wrong"))
-        #expect(down.hasSuffix("SELECT 'undo';"))
+        #expect(down.hasSuffix("SELECT 'undo'\n;"))
     }
 
     struct Destructive: Migration {
@@ -67,4 +67,3 @@ struct ControlFlowTests {
         #expect(throws: MigrationPlanningError.self) { try MigrationCompiler.prepare(Invalid(kind: kind)) }
     }
 }
-

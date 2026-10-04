@@ -36,9 +36,11 @@ public enum MigrationCompiler {
         var reasons: [String] = []
     }
 
-    private static func validateSQL(_ sql: String) throws {
+    private static func rawSQL(_ sql: String) throws -> String {
         _ = try MigrationCatalog.load(sources: [.prepared([.init(
             version: "1700000000_fragment", name: "fragment", upSQL: sql, rollback: .sql(sql))])])
+        // Keep the generated statement separator outside any trailing line comment.
+        return sql + "\n"
     }
 
     private static func validateReason(_ reason: String) throws {
@@ -51,9 +53,7 @@ public enum MigrationCompiler {
         switch operation {
         case .sql(let sql):
             guard let down = sql.down else { throw MigrationPlanningError(reason: "Unpaired SQL requires an explicit branch") }
-            try validateSQL(sql.up)
-            try validateSQL(down)
-            return Compiled(up: [sql.up], down: [down])
+            return try Compiled(up: [rawSQL(sql.up)], down: [rawSQL(down)])
         case .dropTable:
             throw MigrationPlanningError(reason: "DropTable requires an explicit branch")
         case .reversible(let branches):
@@ -74,9 +74,9 @@ public enum MigrationCompiler {
         return try plan.operations.flatMap { operation -> [String] in
             switch operation {
             case .sql(let sql):
-                try validateSQL(sql.up)
-                if let down = sql.down { try validateSQL(down) }
-                return [sql.up]
+                let up = try rawSQL(sql.up)
+                if let down = sql.down { _ = try rawSQL(down) }
+                return [up]
             case .dropTable(let table):
                 return ["DROP TABLE \(try PostgresMigrationRenderer.qualified(table.name, schema: table.schema))"]
             case .reversible(let branches):
@@ -139,4 +139,3 @@ public enum MigrationCompiler {
         }
     }
 }
-

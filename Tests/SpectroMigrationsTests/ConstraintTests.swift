@@ -24,7 +24,7 @@ struct ConstraintTests {
     func constraints() throws {
         let sql = try MigrationCompiler.prepare(CreateIssues()).upSQL
         #expect(sql.contains(#"CONSTRAINT "issues_author_id_fkey" REFERENCES "users" ("id") ON DELETE RESTRICT"#))
-        #expect(sql.contains(#"CONSTRAINT "issues_priority_nonnegative" CHECK (priority >= 0)"#))
+        #expect(sql.contains("CONSTRAINT \"issues_priority_nonnegative\" CHECK (priority >= 0\n)"))
         #expect(sql.components(separatedBy: "CREATE INDEX").count == 2)
     }
 
@@ -43,7 +43,7 @@ struct ConstraintTests {
     func partial() throws {
         let sql = try MigrationCompiler.prepare(Partial()).upSQL
         #expect(sql.contains(#"CONSTRAINT "user_fk" REFERENCES "accounts"."users" ("id")"#))
-        #expect(sql.contains(#"ON "audit"."issues" ("title") WHERE (active = TRUE)"#))
+        #expect(sql.contains("ON \"audit\".\"issues\" (\"title\") WHERE (active = TRUE\n)"))
     }
 
     struct Invalid: Migration {

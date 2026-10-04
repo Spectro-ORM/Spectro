@@ -135,6 +135,11 @@ def main():
             result = migrate(*arguments)
             if arguments[0] == "plan":
                 assert "legacy_items" in result.stdout and "pending" not in result.stdout
+                ids = [line.removeprefix("-- ") for line in result.stdout.splitlines() if line.startswith("-- 170000000")]
+                expected_ids = ["1700000000_create_legacy_items", "1700000001_create_fixture_users", "1700000002_add_legacy_priority"]
+                if "down" in arguments:
+                    expected_ids.reverse()
+                assert ids == expected_ids, f"Preview order must match execution: {ids} != {expected_ids}"
         migrate("plan", "--migration", "missing", expected=1)
         migrate("down", "--step=-1", expected=1)
         print("PASS: copied executable and resources, offline help/plan, no compiler on runtime PATH", flush=True)

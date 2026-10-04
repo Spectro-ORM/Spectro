@@ -1,6 +1,6 @@
 # Swift Migrations Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Implementation was approved after the proposal. Tasks 1-6 are implemented and locally validated; final branch review is in progress.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Implementation was approved after the proposal. All seven tasks, local validation, and the independent branch review are complete.
 
 **Goal:** Let Spectro consumers author versioned Swift migrations and deploy a project-owned migration executable while retaining the 2.0.0 SQL workflow.
 
@@ -388,7 +388,7 @@ Use the scripts' explicit build-root options for paths outside synced Documents 
 - [x] Explain the epoch/full-ID ledger contract, mixed-history adoption, resource packaging, process-environment configuration, --step default, timestamps behavior, and schema-only versus data-recovering rollback.
 - [x] State that plan is offline/all-registered, bodies must be deterministic, raw SQL uses the same transaction, and concurrent indexes are outside the first-release transaction model.
 - [x] Compare the public surface to 2.0.0: no new required protocol members, no changed existing method signatures/defaults, no extra dependency product required for existing SpectroKit users.
-- [ ] Review the completed branch independently using the repository's review workflow, fix actionable findings, then rerun only checks affected by fixes.
+- [x] Review the completed branch independently using the repository's review workflow, fix actionable findings, then rerun only checks affected by fixes.
 - [x] Record actual local/hosted validation and remaining limits. Propose an additive 2.x version only if the audit supports it.
 - [x] Commit documentation. Await the user's release instructions before any merge, tag, or publication.
 
@@ -398,6 +398,6 @@ Use the scripts' explicit build-root options for paths outside synced Documents 
 - Every Review Focus item has an assigned task and an explicit test scenario.
 - The new module has a one-way dependency on Spectro; session ownership never leaves the existing core.
 - No optional source-generation plugin, dynamic loader, model diff engine, transaction opt-out, or additional database backend is required.
-- Tasks 1-6 are implemented; release artifacts and the original plus extended HTTP scenario passed locally. Final independent review is in progress.
+- All seven tasks are complete. Independent review found three actionable issues; regression tests reproduced them and verified the fixes. Both platforms pass 413 tests, copied release artifacts and the compiler-free container pass acceptance, and the original plus extended HTTP scenario passes locally. See the [validation report](../reports/2026-10-04-swift-migrations-validation.md).
 - Public consumer signatures and nonempty builder inference compile on Swift 6.0. Empty generated accessors use get {} for Swift 6.0 compatibility.
 - Planning checks passed: local document links, balanced fences, placeholder scan, descriptor JSON parsing, and syntax parsing of all nine Swift examples in the design. Syntax parsing does not resolve or type-check the proposed API and does not exercise a database.
