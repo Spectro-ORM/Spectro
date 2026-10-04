@@ -6,6 +6,7 @@
 - Type erasure in generics prevents runtime query building
 
 ## Testing
+- Keep side-effecting C calls outside Swift Testing macros: Swift 6.0 rejects `#require(kill(...) == 0)` even though Swift 6.4 accepts it. Store the boolean result before requiring it and verify the minimum supported compiler in CI.
 - Keep async subprocess waits bounded. A sampled CLI termination test remained inside `Process.waitUntilExit()` after its child was gone; poll `isRunning` with an async deadline before checking termination status.
 - Tests use Swift Testing (@Suite, @Test), not XCTest
 - Integration tests require live PostgreSQL

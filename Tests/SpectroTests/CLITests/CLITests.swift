@@ -115,7 +115,8 @@ struct CLITests {
                 try await Task.sleep(for: .milliseconds(10))
             }
             try #require(sleeping)
-            try #require(kill(runner.processIdentifier, SIGKILL) == 0)
+            let killedSuccessfully = kill(runner.processIdentifier, SIGKILL) == 0
+            try #require(killedSuccessfully)
             try await waitForExit(runner)
             #expect(runner.terminationReason == .uncaughtSignal)
             #expect(runner.terminationStatus == SIGKILL)

@@ -9,6 +9,7 @@
 - [x] Sample a stalled test run: the killed CLI child had exited while `Process.waitUntilExit()` remained blocked.
 - [x] Replace async CLI test waits with bounded polling and pass ten consecutive process-termination runs.
 - [x] Review release documentation and verify the release candidate locally.
+- [x] Correct the Swift 6.0 test-macro compilation failure found by hosted CI by evaluating `kill` before `#require`.
 
 Verification: 368 tests in 35 suites pass on macOS/Swift 6.4, including the macro soft-delete regression; real HTTP acceptance passes both scenarios. Independent review has no remaining findings. Documentation links and `git diff --check` pass. The sampled process-wait hang and its fix affect the CLI test harness; production migration behavior is unchanged by that repair.
 
