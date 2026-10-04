@@ -1,13 +1,14 @@
 import SwiftSyntax
 import SwiftSyntaxMacros
 import SwiftDiagnostics
+import SpectroCommon
 
 public struct SchemaMacro {}
 
 // MARK: - Property Analysis
 
 private enum WrapperKind {
-    case id, column, timestamp, foreignKey, hasMany, hasOne, belongsTo, manyToMany
+    case id, column, timestamp, softDelete, foreignKey, hasMany, hasOne, belongsTo, manyToMany
 }
 
 private struct PropertyInfo {
@@ -23,7 +24,7 @@ private struct PropertyInfo {
     let foreignKeyOverride: String? // from @HasMany(foreignKey: "col") / @HasOne / @BelongsTo
 }
 
-private let columnAttributeNames: Set<String> = ["ID", "Column", "Timestamp", "ForeignKey"]
+private let columnAttributeNames: Set<String> = ["ID", "Column", "Timestamp", "SoftDelete", "ForeignKey"]
 
 private func toSnakeCase(_ input: String) -> String {
     var result = ""
@@ -40,6 +41,7 @@ private func classifyWrapper(_ attrNames: [String]) -> WrapperKind? {
     if attrNames.contains("ID") { return .id }
     if attrNames.contains("Column") { return .column }
     if attrNames.contains("Timestamp") { return .timestamp }
+    if attrNames.contains("SoftDelete") { return .softDelete }
     if attrNames.contains("ForeignKey") { return .foreignKey }
     if attrNames.contains("HasMany") { return .hasMany }
     if attrNames.contains("HasOne") { return .hasOne }
@@ -54,6 +56,7 @@ private func wrapperAttributeName(_ kind: WrapperKind) -> String {
     case .id:         return "ID"
     case .column:     return "Column"
     case .timestamp:  return "Timestamp"
+    case .softDelete: return "SoftDelete"
     case .foreignKey: return "ForeignKey"
     case .hasMany:    return "HasMany"
     case .hasOne:     return "HasOne"
@@ -184,6 +187,7 @@ private func defaultValueExpression(for prop: PropertyInfo) -> String {
         default:       return "\(prop.typeName)()"
         }
     case .timestamp:           return "Date()"
+    case .softDelete:          return "nil"
     case .hasMany, .manyToMany: return "[]"
     case .hasOne, .belongsTo:   return "nil"
     case .column:
@@ -204,6 +208,7 @@ private func defaultValueExpression(for prop: PropertyInfo) -> String {
 
 private struct ExistingMembers {
     var hasTableName = false
+    var hasSoftDeleteColumn = false
     var hasDefaultInit = false
 }
 
@@ -212,9 +217,9 @@ private func detectExisting(in structDecl: StructDeclSyntax) -> ExistingMembers 
     for member in structDecl.memberBlock.members {
         if let varDecl = member.decl.as(VariableDeclSyntax.self),
            let binding = varDecl.bindings.first,
-           let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
-           pattern.identifier.text == "tableName" {
-            result.hasTableName = true
+           let pattern = binding.pattern.as(IdentifierPatternSyntax.self) {
+            if pattern.identifier.text == "tableName" { result.hasTableName = true }
+            if pattern.identifier.text == "softDeleteColumn" { result.hasSoftDeleteColumn = true }
         }
         if let initDecl = member.decl.as(InitializerDeclSyntax.self),
            initDecl.signature.parameterClause.parameters.isEmpty {
@@ -256,6 +261,11 @@ extension SchemaMacro: MemberMacro {
         // --- static let tableName ---
         if !existing.hasTableName {
             decls.append("static let tableName = \"\(raw: tableName)\"")
+        }
+
+        if !existing.hasSoftDeleteColumn,
+           let softDelete = properties.first(where: { $0.wrapper == .softDelete }) {
+            decls.append("nonisolated static var softDeleteColumn: String? { \"\(raw: softDelete.name.snakeCase())\" }")
         }
 
         // --- init() ---
@@ -311,6 +321,7 @@ extension SchemaMacro: MemberMacro {
                 switch prop.wrapper {
                 case .id:                  return "self.\(prop.name) = \(defaultValueExpression(for: prop))"
                 case .timestamp:           return "self.\(prop.name) = Date()"
+                case .softDelete:          return "self.\(prop.name) = nil"
                 case .column, .foreignKey: return "self.\(prop.name) = \(prop.name)"
                 case .hasMany, .manyToMany: return "self.\(prop.name) = []"
                 case .hasOne, .belongsTo:   return "self.\(prop.name) = nil"
@@ -332,7 +343,7 @@ extension SchemaMacro: MemberMacro {
         var entries: [String] = []
         for prop in properties {
             switch prop.wrapper {
-            case .id, .column, .timestamp, .foreignKey:
+            case .id, .column, .timestamp, .softDelete, .foreignKey:
                 entries.append("\\\(typeName).\(prop.name): \"\(prop.name)\"")
             case .hasMany, .hasOne, .belongsTo, .manyToMany:
                 entries.append("\\\(typeName).$\(prop.name): \"\(prop.name)\"")
@@ -370,7 +381,7 @@ extension SchemaMacro: ExtensionMacro {
 
         var assignments: [String] = []
 
-        // Column-attribute properties: @ID, @Column, @Timestamp, @ForeignKey
+        // Column-attribute properties: @ID, @Column, @Timestamp, @SoftDelete, @ForeignKey
         for prop in allProps where columnAttributeNames.contains(wrapperAttributeName(prop.wrapper)) {
             // Always use the Swift property name as the dict key.
             // Schema.from(row:) populates the dict keyed by property name, not database column name.
@@ -461,6 +472,9 @@ private func generateEncodableExtension(typeName: String, properties: [PropertyI
         let jsonKey: String
         if let override = prop.columnName {
             jsonKey = override
+        } else if prop.wrapper == .softDelete {
+            // Match the registry's database column, including acronym suffixes.
+            jsonKey = prop.name.snakeCase()
         } else {
             jsonKey = toSnakeCase(prop.name)
         }
@@ -476,7 +490,7 @@ private func generateEncodableExtension(typeName: String, properties: [PropertyI
     var encodeStatements: [String] = []
     for prop in properties {
         switch prop.wrapper {
-        case .id, .column, .timestamp, .foreignKey:
+        case .id, .column, .timestamp, .softDelete, .foreignKey:
             if prop.isOptional {
                 encodeStatements.append(
                     "try container.encodeIfPresent(self.\(prop.name), forKey: .\(prop.name))"

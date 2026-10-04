@@ -32,6 +32,14 @@ struct CLITests {
         return process
     }
 
+    private func waitForExit(_ process: Process) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while process.isRunning && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(!process.isRunning, "Migration process did not exit within 10 seconds")
+    }
+
     private func finish(_ processes: [Process]) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         while processes.contains(where: \.isRunning) && ContinuousClock.now < deadline {
@@ -40,10 +48,9 @@ struct CLITests {
         for process in processes {
             if process.isRunning {
                 kill(process.processIdentifier, SIGKILL)
-                process.waitUntilExit()
                 Issue.record("Migration process timed out")
             }
-            process.waitUntilExit()
+            try await waitForExit(process)
             #expect(process.terminationStatus == 0)
         }
     }
@@ -108,8 +115,10 @@ struct CLITests {
                 try await Task.sleep(for: .milliseconds(10))
             }
             try #require(sleeping)
-            kill(runner.processIdentifier, SIGKILL)
-            runner.waitUntilExit()
+            try #require(kill(runner.processIdentifier, SIGKILL) == 0)
+            try await waitForExit(runner)
+            #expect(runner.terminationReason == .uncaughtSignal)
+            #expect(runner.terminationStatus == SIGKILL)
             try """
                 -- migrate:up
                 CREATE TABLE cli_killed (id INT);
@@ -121,7 +130,10 @@ struct CLITests {
             let status = try run(["migrate", "status", "--database", testDB], directory: directory)
             #expect(status.output.contains("1 applied"))
         } catch {
-            if runner.isRunning { kill(runner.processIdentifier, SIGKILL); runner.waitUntilExit() }
+            if runner.isRunning {
+                kill(runner.processIdentifier, SIGKILL)
+                try? await waitForExit(runner)
+            }
             await observer.shutdown()
             throw error
         }

@@ -6,6 +6,7 @@
 - Type erasure in generics prevents runtime query building
 
 ## Testing
+- Keep async subprocess waits bounded. A sampled CLI termination test remained inside `Process.waitUntilExit()` after its child was gone; poll `isRunning` with an async deadline before checking termination status.
 - Tests use Swift Testing (@Suite, @Test), not XCTest
 - Integration tests require live PostgreSQL
 - Use TRUNCATE between tests for isolation
@@ -22,6 +23,7 @@
 - For struct mutating methods, verify no existing callers expect the non-mutating signature before changing
 
 ## Macro-Generated Code
+- Exercise new property wrappers through the public `@Schema` workflow. Manual test schemas can hide missing generated metadata, row decoding, and JSON encoding; the release review reproduced that gap for `@SoftDelete`.
 - withLoader must reset loadState to .notLoaded, not preserve it. The @Schema macro init does `self.posts = []` which sets the relation to `.loaded([])`. If withLoader preserves that state, `load(using:)` short-circuits and returns the stale empty value, never calling the loader. Always reset to .notLoaded when attaching a new loader.
 - The @Schema macro generates loader injection in build(from:) for relationships: hasManyLoader for @HasMany, hasOneLoader for @HasOne, belongsToLoader for @BelongsTo. These are auto-attached when entities are built from database rows.
 - When generating code for @ID or @ForeignKey properties, always use `prop.typeName` (from `PropertyInfo`) rather than hardcoding "UUID". The `defaultValueExpression(for:)` helper handles mapping type names to default values (UUID() for UUID, 0 for Int, "" for String). Similarly, `as?` casts in loader injection must use the actual PK/FK type from the property declaration.

@@ -2,9 +2,70 @@ import Foundation
 import Testing
 @testable import Spectro
 
+@Schema("macro_soft_users")
+private struct MacroSoftUser {
+    @ID var id: UUID
+    @Column var name: String
+    @SoftDelete var removedAtUTC: Date?
+}
+
+@Schema("macro_soft_override", encodable: false)
+private struct MacroSoftOverride {
+    static var softDeleteColumn: String? { "removed_at" }
+    @ID var id: UUID
+    @SoftDelete var removedAt: Date?
+}
+
 extension DatabaseIntegrationTests {
 @Suite("Soft Delete")
 struct SoftDeleteTests {
+
+    @Test("Schema macro preserves soft-delete metadata, dates, and JSON")
+    func macroSoftDeleteMapping() throws {
+        let removedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let user = MacroSoftUser.build(from: ["name": "Removed", "removedAtUTC": removedAt])
+        #expect(MacroSoftUser.softDeleteColumn == "removed_at_utc")
+        #expect(MacroSoftUser().removedAtUTC == nil)
+        #expect(MacroSoftUser(name: "Active").removedAtUTC == nil)
+        #expect(user.removedAtUTC == removedAt)
+        let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(user)) as? [String: Any])
+        #expect(json["removed_at_utc"] != nil)
+        #expect(MacroSoftOverride.softDeleteColumn == "removed_at")
+        #expect(MacroSoftOverride.build(from: ["removedAt": removedAt]).removedAt == removedAt)
+    }
+
+    @Test("Macro soft deletes filter query and transaction reads and decode withDeleted")
+    func macroSoftDeleteQueries() async throws {
+        let repo = try await TestDatabase.sharedRepo()
+        try await repo.executeRawSQL("""
+            CREATE TABLE IF NOT EXISTS macro_soft_users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name TEXT NOT NULL,
+                removed_at_utc TIMESTAMPTZ
+            )
+            """)
+        try await repo.executeRawSQL("TRUNCATE macro_soft_users")
+        let active = try await repo.insert(MacroSoftUser(name: "Active"))
+        let removed = try await repo.insert(MacroSoftUser(name: "Removed"))
+        try await repo.delete(MacroSoftUser.self, id: removed.id)
+
+        let visible = try await repo.query(MacroSoftUser.self).all()
+        #expect(visible.map(\.id) == [active.id])
+        #expect(try await repo.query(MacroSoftUser.self).count() == 1)
+        let all = try await repo.query(MacroSoftUser.self).withDeleted().all()
+        #expect(all.count == 2)
+        #expect(all.first(where: { $0.id == removed.id })?.removedAtUTC != nil)
+        let deleted = try await repo.query(MacroSoftUser.self).withDeleted()
+            .where { $0.removedAtUTC.isNotNull() }.all()
+        #expect(deleted.map(\.id) == [removed.id])
+
+        try await repo.transaction { transaction in
+            let visible = try await transaction.query(MacroSoftUser.self).all()
+            #expect(visible.map(\.id) == [active.id])
+            let all = try await transaction.query(MacroSoftUser.self).withDeleted().all()
+            #expect(all.first(where: { $0.id == removed.id })?.removedAtUTC != nil)
+        }
+    }
 
     private func withCleanTable(_ body: (GenericDatabaseRepo) async throws -> Void) async throws {
         let repo = try await TestDatabase.sharedRepo()

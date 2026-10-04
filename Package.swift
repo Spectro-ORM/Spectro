@@ -31,6 +31,7 @@ let package = Package(
         .macro(
             name: "SpectroMacros",
             dependencies: [
+                "SpectroCommon",
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
             ],

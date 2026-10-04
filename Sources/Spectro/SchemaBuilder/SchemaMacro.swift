@@ -2,6 +2,7 @@
 ///
 /// Annotate your struct with `@Schema("table_name")` and the macro generates:
 /// - `static let tableName` — from the string argument
+/// - `static var softDeleteColumn` — the database column of an `@SoftDelete` field, if present
 /// - `init()` — default initializer with type-appropriate defaults
 /// - `init(column params...)` — convenience initializer for `@Column`/`@ForeignKey` properties
 /// - `SchemaBuilder.build(from:)` — row-mapping from `[String: Any]`
@@ -12,7 +13,7 @@
 ///
 /// ## Encodable Behavior
 ///
-/// - All `@Column`, `@ID`, `@Timestamp`, `@ForeignKey` properties are encoded
+/// - All `@Column`, `@ID`, `@Timestamp`, `@SoftDelete`, `@ForeignKey` properties are encoded
 /// - JSON keys use `snake_case` conversion of the Swift property name
 /// - `@Column("custom_name")` overrides produce the custom name as the JSON key
 /// - Relationship properties (`@HasMany`, `@HasOne`, `@BelongsTo`, `@ManyToMany`)
@@ -40,12 +41,12 @@
 /// `init()` with sensible defaults but are not included as parameters in the
 /// convenience initializer, nor in `build(from:)`.
 ///
-/// If you provide your own `tableName` or `init()` in the struct body, the macro
+/// If you provide your own `tableName`, `softDeleteColumn`, or `init()` in the struct body, the macro
 /// skips generating those members.
-@attached(member, names: named(tableName), named(init), named(_keyPathToColumn))
+@attached(member, names: named(tableName), named(softDeleteColumn), named(init), named(_keyPathToColumn))
 @attached(extension, conformances: Schema, SchemaBuilder, Encodable, names: named(build), named(CodingKeys), named(encode))
 public macro Schema(_ tableName: String) = #externalMacro(module: "SpectroMacros", type: "SchemaMacro")
 
-@attached(member, names: named(tableName), named(init), named(_keyPathToColumn))
+@attached(member, names: named(tableName), named(softDeleteColumn), named(init), named(_keyPathToColumn))
 @attached(extension, conformances: Schema, SchemaBuilder, Encodable, names: named(build), named(CodingKeys), named(encode))
 public macro Schema(_ tableName: String, encodable: Bool) = #externalMacro(module: "SpectroMacros", type: "SchemaMacro")
