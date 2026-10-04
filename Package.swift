@@ -11,6 +11,7 @@ let package = Package(
     products: [
         .library(name: "SpectroCommon", targets: ["SpectroCommon"]),
         .library(name: "SpectroKit", targets: ["Spectro"]),
+        .library(name: "SpectroMigrations", targets: ["SpectroMigrations"]),
         .executable(name: "spectro", targets: ["SpectroCLI"]),
     ],
     dependencies: [
@@ -49,6 +50,16 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
             ],
             path: "Sources/Spectro",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "SpectroMigrations",
+            dependencies: ["Spectro", "SpectroCommon"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "SpectroMigrationsTests",
+            dependencies: ["SpectroMigrations", "Spectro", "SpectroCommon"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
