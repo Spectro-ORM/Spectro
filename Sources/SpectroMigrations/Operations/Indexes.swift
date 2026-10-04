@@ -4,6 +4,7 @@ public struct CreateIndex: MigrationStep {
     internal let columns: [String]
     internal let schema: String?
     internal var isUnique = false
+    internal var predicate: String?
     internal var issues: [String] = []
 
     public init(_ name: String, on table: String, columns: [String], schema: String? = nil) {
@@ -21,5 +22,11 @@ public struct CreateIndex: MigrationStep {
     }
 
     public var migrationPlan: MigrationPlan { MigrationPlan([.createIndex(self)]) }
-}
 
+    public func whereSQL(_ expression: String) -> Self {
+        var copy = self
+        if copy.predicate != nil { copy.issues.append("Index predicate was specified more than once") }
+        copy.predicate = expression
+        return copy
+    }
+}

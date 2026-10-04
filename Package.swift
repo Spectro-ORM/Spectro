@@ -78,6 +78,7 @@ let package = Package(
             dependencies: [
                 "SpectroCommon",
                 "Spectro",
+                "SpectroMigrations",
             ],
             path: "Tests/SpectroTests",
             swiftSettings: [.swiftLanguageMode(.v6)]

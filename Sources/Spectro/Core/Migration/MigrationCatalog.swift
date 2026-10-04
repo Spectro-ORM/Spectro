@@ -70,7 +70,9 @@ public enum MigrationCatalog {
     }
 
     private static func validateSQL(_ sql: String, version: String) throws {
-        let statements = try SQLStatementParser.parse(sql)
+        let statements: [String]
+        do { statements = try SQLStatementParser.parse(sql) }
+        catch { throw MigrationPlanningError(migrationID: version, reason: "Malformed SQL quoting or comment: \(error)") }
         guard !statements.isEmpty else {
             throw MigrationPlanningError(migrationID: version, reason: "Migration SQL must not be empty")
         }
@@ -85,4 +87,3 @@ public enum MigrationCatalog {
         }
     }
 }
-

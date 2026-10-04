@@ -53,13 +53,34 @@ internal enum PostgresMigrationRenderer {
         }
     }
 
-    static func column(_ column: ColumnDefinition) throws -> String {
+    static func expression(_ sql: String) throws -> String {
+        guard !sql.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !sql.contains("\0") else {
+            throw MigrationPlanningError(reason: "A trusted SQL expression must not be empty or contain NUL")
+        }
+        return sql
+    }
+
+    static func referenceName(_ column: ColumnDefinition, table: String) -> String? {
+        column.reference.map { $0.name ?? "\(table)_\(column.name)_fkey" }
+    }
+
+    static func column(_ column: ColumnDefinition, table: String) throws -> String {
         if let issue = column.issues.first { throw MigrationPlanningError(reason: issue) }
         var result = try identifier(column.name) + " " + type(column.type)
         if column.primary { result += " PRIMARY KEY" }
         else if column.required { result += " NOT NULL" }
         if let defaultValue = column.defaultValue { result += " DEFAULT " + (try value(defaultValue)) }
+        if let reference = column.reference {
+            guard !(reference.action == .setNull && (column.required || column.primary)) else {
+                throw MigrationPlanningError(reason: "ON DELETE SET NULL conflicts with a non-null column")
+            }
+            guard reference.action != .setDefault || column.defaultValue != nil else {
+                throw MigrationPlanningError(reason: "ON DELETE SET DEFAULT requires an explicit default")
+            }
+            let name = referenceName(column, table: table)!
+            result += " CONSTRAINT \(try identifier(name)) REFERENCES \(try qualified(reference.table, schema: reference.schema))"
+            result += " (\(try identifier(reference.column))) ON DELETE \(reference.action.rawValue)"
+        }
         return result
     }
 }
-

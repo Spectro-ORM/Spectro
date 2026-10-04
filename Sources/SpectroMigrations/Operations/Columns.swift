@@ -21,6 +21,7 @@ public struct ColumnDefinition: Sendable {
     internal var primary = false
     internal var required = false
     internal var defaultValue: MigrationDefault?
+    internal var reference: ColumnReference?
     internal var modifiers = Set<String>()
     internal var issues: [String] = []
 
@@ -30,6 +31,11 @@ public struct ColumnDefinition: Sendable {
     public func notNull() -> Self { setting("notNull") { $0.required = true } }
     public func `default`(_ value: MigrationDefault) -> Self { setting("default") { $0.defaultValue = value } }
 
+    public func references(_ table: String, schema: String? = nil, column: String = "id",
+                           onDelete: ReferenceAction = .noAction, name: String? = nil) -> Self {
+        setting("references") { $0.reference = .init(table: table, schema: schema, column: column, action: onDelete, name: name) }
+    }
+
     internal func setting(_ key: String, _ change: (inout Self) -> Void) -> Self {
         var copy = self
         if !copy.modifiers.insert(key).inserted { copy.issues.append("Column \(name): \(key) was specified more than once") }
@@ -38,3 +44,18 @@ public struct ColumnDefinition: Sendable {
     }
 }
 
+public enum ReferenceAction: String, Sendable {
+    case noAction = "NO ACTION"
+    case restrict = "RESTRICT"
+    case cascade = "CASCADE"
+    case setNull = "SET NULL"
+    case setDefault = "SET DEFAULT"
+}
+
+internal struct ColumnReference: Sendable {
+    let table: String
+    let schema: String?
+    let column: String
+    let action: ReferenceAction
+    let name: String?
+}

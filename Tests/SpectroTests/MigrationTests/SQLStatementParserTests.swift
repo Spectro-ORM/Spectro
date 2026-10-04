@@ -5,6 +5,19 @@ import Testing
 
 @Suite("SQL Statement Parser")
 struct SQLStatementParserTests {
+    @Test("Quoted identifiers and escape strings preserve their semicolons")
+    func quotedBoundaries() throws {
+        let statements = try SQLStatementParser.parse(#"SELECT E'can\'t;stop'; SELECT "a;--/*b"; SELECT 3;"#)
+        #expect(statements.count == 3)
+        #expect(statements.first == #"SELECT E'can\'t;stop';"#)
+        #expect(statements[1] == #"SELECT "a;--/*b";"#)
+    }
+
+    @Test("Nested comments separate tokens; bind parameters are not dollar quotes")
+    func commentBoundaries() throws {
+        let statements = try SQLStatementParser.parse("SELECT/* outer /* inner */ rest */1; SELECT $1 + $2; SELECT 3;")
+        #expect(statements == ["SELECT 1;", "SELECT $1 + $2;", "SELECT 3;"])
+    }
 
     @Test("Parses simple semicolon-separated statements")
     func simpleParsing() throws {

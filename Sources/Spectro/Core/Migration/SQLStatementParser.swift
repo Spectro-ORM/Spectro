@@ -2,142 +2,110 @@ import Foundation
 
 enum SQLParsingError: Error {
     case unbalancedDollarQuotes
+    case unterminatedQuote
+    case unterminatedComment
 }
 
-/// Splits a SQL string into individual statements at semicolons, correctly
-/// handling PostgreSQL dollar-quoted strings, single-quoted strings,
-/// full-line `--` comments, inline `--` comments, and `/* */` block comments.
+/// Splits PostgreSQL statements, retaining quoted text and treating comments as whitespace.
 enum SQLStatementParser {
-
     static func parse(_ sql: String) throws -> [String] {
+        let chars = Array(sql.unicodeScalars)
         var statements: [String] = []
         var current = ""
-        var inDollarQuote = false
-        var dollarTag = ""
-        var inSingleQuote = false
-        var inBlockComment = false
+        var i = 0
+        var quote: Unicode.Scalar?
+        var escapeString = false
+        var dollarTag: [Unicode.Scalar] = []
+        var commentDepth = 0
 
-        var chars = Array(sql.unicodeScalars)
-        var i = chars.startIndex
+        func identifierStart(_ c: Unicode.Scalar) -> Bool { c == "_" || c.properties.isAlphabetic }
+        func identifierPart(_ c: Unicode.Scalar) -> Bool {
+            identifierStart(c) || c.properties.numericType != nil || c == "$"
+        }
+        func finish() {
+            let statement = current.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !statement.isEmpty { statements.append(statement + ";") }
+            current = ""
+        }
 
-        while i < chars.endIndex {
+        while i < chars.count {
             let c = chars[i]
-
-            // ── Block comments /* ... */ ────────────────────────────────────
-            if inBlockComment {
-                if c == "*", let next = chars.index(i, offsetBy: 1, limitedBy: chars.endIndex),
-                   next < chars.endIndex, chars[next] == "/" {
-                    inBlockComment = false
-                    i = chars.index(i, offsetBy: 2)
-                    continue
-                }
-                i = chars.index(after: i)
+            let next: Unicode.Scalar? = i + 1 < chars.count ? chars[i + 1] : nil
+            if commentDepth > 0 {
+                if c == "/", next == "*" { commentDepth += 1; i += 2 }
+                else if c == "*", next == "/" { commentDepth -= 1; i += 2 }
+                else { i += 1 }
                 continue
             }
-
-            // ── Single-quoted strings 'text' ────────────────────────────────
-            if inSingleQuote {
-                if c == "'" {
-                    inSingleQuote = false
-                    current.unicodeScalars.append(c)
+            if !dollarTag.isEmpty {
+                if chars[i...].starts(with: dollarTag) {
+                    current.unicodeScalars.append(contentsOf: dollarTag)
+                    i += dollarTag.count
+                    dollarTag = []
                 } else {
                     current.unicodeScalars.append(c)
+                    i += 1
                 }
-                i = chars.index(after: i)
                 continue
             }
-
-            // ── Dollar-quoted strings $$body$$ ──────────────────────────────
-            if inDollarQuote {
-                // Check if we've hit the closing tag
-                let remaining = chars[i...]
-                let tagScalars = Array(dollarTag.unicodeScalars)
-                if remaining.count >= tagScalars.count &&
-                   Array(remaining.prefix(tagScalars.count)) == tagScalars {
-                    current += dollarTag
-                    inDollarQuote = false
-                    dollarTag = ""
-                    i = chars.index(i, offsetBy: tagScalars.count)
-                    continue
-                }
+            if let activeQuote = quote {
                 current.unicodeScalars.append(c)
-                i = chars.index(after: i)
-                continue
-            }
-
-            // ── Detect opening of block comment /* ──────────────────────────
-            if c == "/", let next = chars.index(i, offsetBy: 1, limitedBy: chars.endIndex),
-               next < chars.endIndex, chars[next] == "*" {
-                inBlockComment = true
-                i = chars.index(i, offsetBy: 2)
-                continue
-            }
-
-            // ── Detect inline -- comment (skip to end of line) ──────────────
-            if c == "-", let next = chars.index(i, offsetBy: 1, limitedBy: chars.endIndex),
-               next < chars.endIndex, chars[next] == "-" {
-                // Skip until newline
-                while i < chars.endIndex && chars[i] != "\n" {
-                    i = chars.index(after: i)
+                i += 1
+                if escapeString, c == "\\", let next {
+                    current.unicodeScalars.append(next)
+                    i += 1
+                } else if c == activeQuote {
+                    if next == activeQuote {
+                        current.unicodeScalars.append(activeQuote)
+                        i += 1
+                    } else {
+                        quote = nil
+                        escapeString = false
+                    }
                 }
                 continue
             }
-
-            // ── Detect opening dollar quote ─────────────────────────────────
-            if c == "$" {
-                var tag = "$"
-                var j = chars.index(after: i)
-                while j < chars.endIndex && chars[j] != "$" {
-                    tag.unicodeScalars.append(chars[j])
-                    j = chars.index(after: j)
-                }
-                if j < chars.endIndex && chars[j] == "$" {
-                    tag.append("$")
-                    dollarTag = tag
-                    inDollarQuote = true
-                    current += tag
-                    i = chars.index(after: j)
-                    continue
-                }
-                // Not a dollar quote — treat as regular character
-                current.unicodeScalars.append(c)
-                i = chars.index(after: i)
+            if c == "/", next == "*" {
+                current += " "
+                commentDepth = 1
+                i += 2
                 continue
             }
-
-            // ── Single-quote start ──────────────────────────────────────────
+            if c == "-", next == "-" {
+                current += " "
+                while i < chars.count, chars[i] != "\n" { i += 1 }
+                continue
+            }
             if c == "'" {
-                inSingleQuote = true
-                current.unicodeScalars.append(c)
-                i = chars.index(after: i)
-                continue
-            }
-
-            // ── Semicolon — end of statement ────────────────────────────────
-            if c == ";" {
-                let stmt = current.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !stmt.isEmpty {
-                    statements.append(stmt + ";")
+                quote = c
+                escapeString = i > 0 && (chars[i - 1] == "e" || chars[i - 1] == "E")
+                    && (i < 2 || !identifierPart(chars[i - 2]))
+            } else if c == "\"" {
+                quote = c
+            } else if c == "$", i == 0 || !identifierPart(chars[i - 1]) {
+                var end = i + 1
+                if end < chars.count, chars[end] != "$", identifierStart(chars[end]) {
+                    end += 1
+                    while end < chars.count, identifierPart(chars[end]), chars[end] != "$" { end += 1 }
                 }
-                current = ""
-                i = chars.index(after: i)
+                if end < chars.count, chars[end] == "$" {
+                    dollarTag = Array(chars[i...end])
+                    current.unicodeScalars.append(contentsOf: dollarTag)
+                    i = end + 1
+                    continue
+                }
+            } else if c == ";" {
+                finish()
+                i += 1
                 continue
             }
-
             current.unicodeScalars.append(c)
-            i = chars.index(after: i)
+            i += 1
         }
-
-        // Any remaining content (statement without trailing semicolon)
-        let tail = current.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !tail.isEmpty {
-            statements.append(tail.hasSuffix(";") ? tail : tail + ";")
-        }
-
-        if inDollarQuote {
-            throw SQLParsingError.unbalancedDollarQuotes
-        }
-
+        if !dollarTag.isEmpty { throw SQLParsingError.unbalancedDollarQuotes }
+        if quote != nil { throw SQLParsingError.unterminatedQuote }
+        if commentDepth != 0 { throw SQLParsingError.unterminatedComment }
+        finish()
         return statements
     }
 }

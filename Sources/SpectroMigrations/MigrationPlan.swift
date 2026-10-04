@@ -7,5 +7,8 @@ internal enum MigrationOperation: Sendable {
     case createTable(CreateTable)
     case alterTable(AlterTable)
     case createIndex(CreateIndex)
+    case dropTable(DropTable)
+    case sql(SQL)
+    case reversible(Reversible)
+    case irreversible(Irreversible)
 }
-
