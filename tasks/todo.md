@@ -1,5 +1,24 @@
 # Spectro ORM - Current Sprint
 
+## Join, migration, and application hardening — COMPLETE (2026-10-04)
+
+- [x] Checkpoint the completed correctness fixes on `codex/spectro-hardening` (`f2ab867`).
+- [x] Reproduce joined-column collisions and missing-row decoding with real PostgreSQL tests.
+- [x] Decode explicit, disjoint join projections; preserve nullable fields, reject malformed rows, and define supported join shapes.
+- [x] Reproduce competing migration processes; serialize bootstrap, discovery, up/down, and recording on a reserved session with bounded lock acquisition and cleanup.
+- [x] Verify competing CLI processes, process termination, cancellation, lock timeout, and a single-connection pool.
+- [x] Add a public-API HTTP consumer with repeatable acceptance coverage for joins, changesets, transactions, competing writes, populated-database migration, and restart.
+- [x] Run independent review, macOS tests, Linux tests on the minimum supported Swift version, and the application acceptance command; document results and commit each milestone.
+
+Verification:
+- macOS, Swift 6.4, PostgreSQL 18.6: 366 tests in 35 suites, exit 0.
+- Linux aarch64, Swift 6.0.3, PostgreSQL 16: 366 tests, exit 0, in isolated Docker containers.
+- Public Peregrine 1.2.0 consumer on macOS: real HTTP acceptance passes, including independent psql assertions for transaction rollback, migration column/index removal and reapplication, populated data, concurrent writes, and restart persistence.
+- Independent join, migration-lifecycle, and acceptance reviews completed. Review findings were fixed and checked. CI YAML parsing and git diff --check pass; no hosted CI run is claimed.
+- Commits: f2ab867 (prior correctness checkpoint), 0a51a5d (joined decoding), 5b28faf (migration ownership and cancellation). Application acceptance and CI are the final milestone.
+
+Compatibility finding: Peregrine's ESW dependency requires Swift 6.3. A separate Linux/Swift 6.3.3 consumer build reaches Peregrine but fails because its published 1.2.0 error handler imports Apple's os module. HTTP acceptance therefore runs on macOS; Linux minimum-version coverage verifies Spectro directly. The sibling Peregrine checkout has ongoing changes and was not modified. A published portable Peregrine release is the next dependency requirement for Linux HTTP acceptance.
+
 ## Correctness follow-up — COMPLETE (2026-10-04)
 
 - [x] Reproduce migration DDL escaping rollback in an isolated local database.
@@ -12,7 +31,7 @@
 - [x] Initialize fresh migration databases for up/down while keeping status read-only; cover all three commands through the real CLI.
 - [x] Independent review complete with no remaining findings in this change; full PostgreSQL-backed suite passes.
 
-Verification: 352 tests in 34 suites passed, exit 0, using Swift 6.4 on macOS and a fresh local PostgreSQL database. The original CLI CREATE TABLE / division-by-zero reproduction now exits 1 without persisting DDL or tracking; correcting the SQL and retrying, then rolling back, succeeds. Fresh verification databases were removed. `git diff --check` and CI YAML validation passed. Linux/Swift 6.0 CI was not run locally because Docker is not running; no hosted CI result is claimed. Existing typed-join row-decoding collisions and concurrent migration runners remain separate follow-ups.
+Verification: 352 tests in 34 suites passed, exit 0, using Swift 6.4 on macOS and a fresh local PostgreSQL database. The original CLI CREATE TABLE / division-by-zero reproduction now exits 1 without persisting DDL or tracking; correcting the SQL and retrying, then rolling back, succeeds. Fresh verification databases were removed. `git diff --check` and CI YAML validation passed. At that checkpoint, Linux/Swift 6.0 had not been run locally because Docker was stopped, and joined decoding and concurrent migrations were still pending. Those follow-ups are completed in the hardening milestone above; no hosted CI result is claimed.
 
 ## Schema DSL Improvements — COMPLETE
 

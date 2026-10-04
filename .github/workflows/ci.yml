@@ -8,8 +8,13 @@ on:
 
 jobs:
   build-macos:
-    name: Build (macOS)
+    name: Test and application acceptance (macOS)
     runs-on: macos-15
+    env:
+      DB_HOST: "127.0.0.1"
+      DB_PORT: "55432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +26,32 @@ jobs:
       - name: Build
         run: swift build
 
-      - name: Build tests
-        run: swift build --build-tests
+      - name: Start PostgreSQL
+        run: |
+          brew install postgresql@16
+          pg_bin="$(brew --prefix postgresql@16)/bin"
+          echo "$pg_bin" >> "$GITHUB_PATH"
+          "$pg_bin/initdb" -D "$RUNNER_TEMP/spectro-pg" -U postgres -A trust
+          "$pg_bin/pg_ctl" -D "$RUNNER_TEMP/spectro-pg" -l "$RUNNER_TEMP/spectro-pg.log" -o "-h 127.0.0.1 -p 55432" -w start
+          "$pg_bin/createdb" -h 127.0.0.1 -p 55432 -U postgres spectro_test
+
+      - name: Run tests
+        run: swift test --jobs 4
+
+      - name: Setup Swift for Peregrine dependencies
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.3"
+
+      - name: Run HTTP application acceptance
+        run: python3 scripts/acceptance.py
+
+      - name: Stop PostgreSQL
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/spectro-pg/postmaster.pid" ]; then
+            "$(brew --prefix postgresql@16)/bin/pg_ctl" -D "$RUNNER_TEMP/spectro-pg" -m fast -w stop
+          fi
 
   build-linux:
     name: Build (Linux)
@@ -62,4 +91,4 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           TEST_DB_NAME: spectro_test
-        run: swift test
+        run: swift test --jobs 4

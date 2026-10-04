@@ -431,10 +431,13 @@ let results = try await repo.query(User.self)
     .leftJoin(Post.self, on: { $0.left.id == $0.right.userId })
     .all()
 
-// Right join
-let results = try await repo.query(User.self)
-    .rightJoin(Post.self, on: { $0.left.id == $0.right.userId })
-    .all()
+// Decode both sides; an unmatched post is nil.
+let pairs: [(User, Post?)] = try await repo.query(User.self)
+    .leftJoinAndExecute(Post.self, on: { $0.left.id == $0.right.userId })
+
+// To keep every post, reverse the query and use a left join.
+let postsWithUsers: [(Post, User?)] = try await repo.query(Post.self)
+    .leftJoinAndExecute(User.self, on: { $0.left.userId == $0.right.id })
 
 // Through join (many-to-many via junction table)
 let results = try await repo.query(User.self)
@@ -444,6 +447,8 @@ let results = try await repo.query(User.self)
     })
     .all()
 ```
+
+Typed joins use separate column aliases for each model, including custom column names. Nullable fields remain nil; a malformed present row throws a decoding error. Left joins require a nonnullable primary key on the optional side. Self joins and repeated tables require aliases and are not supported by `executeJoin` yet. Model-returning right joins throw because their main model could be absent, which `[T]` and `[(T, U?)]` cannot represent.
 
 ### Terminal methods
 
@@ -730,6 +735,14 @@ DROP TABLE "users";
 The `SQLStatementParser` handles semicolons inside dollar-quoted strings, inline `--` comments, and `/* */` block comments.
 
 Each migration runs on one PostgreSQL connection in a transaction that includes its tracking update. A failed `up` rolls back its schema changes and remains pending; a failed `down` preserves the applied schema and completed status. Correct the failed SQL and retry. Earlier migrations in the same run remain committed. Migration files must not contain transaction-control statements (`BEGIN`, `COMMIT`, `ROLLBACK`) or commands that cannot run inside a transaction, such as `CREATE INDEX CONCURRENTLY`.
+
+Migration commands acquire a database-wide PostgreSQL advisory lock before creating tracking objects or reading pending/applied migrations. The lock spans the entire command, while each migration has its own transaction. Competing runners re-read the tracking table after acquiring ownership. This requires a direct database connection or a proxy with session pooling; transaction pooling cannot preserve this session lock.
+
+The default lock wait is 30 seconds and can be configured with `spectro.migrationManager(lockTimeout: .seconds(10))`. This limits waiting for another migration runner, separately from pool acquisition and SQL execution. Cancellation is supported while waiting for a pool connection, waiting for the lock, or executing SQL. Each command closes its reserved session before returning the pool slot, releasing locks and rolling back any unfinished transaction. PostgreSQL 14+ sessions enable `client_connection_check_interval` at 100ms to detect client termination during long-running SQL on supported hosts ([PostgreSQL documentation](https://www.postgresql.org/docs/16/runtime-config-connection.html#GUC-CLIENT-CONNECTION-CHECK-INTERVAL)). Disconnect recovery during a network outage still depends on the server's TCP failure detection.
+
+### Application acceptance
+
+The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On macOS 14+ with Swift 6.3+ (required by Peregrine's ESW dependency), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.0; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
 
 ### Generate a migration
 
