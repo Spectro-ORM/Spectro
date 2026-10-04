@@ -1,5 +1,10 @@
 import Foundation
 import Testing
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 @testable import Spectro
 
 /// Tests for the `spectro` CLI binary.
@@ -7,12 +12,129 @@ import Testing
 @Suite("CLI", .serialized)
 struct CLITests {
 
+    private func startMigration(_ action: String, directory: URL, log: URL) throws -> Process {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: try spectroBinaryPath())
+        process.arguments = ["migrate", action, "--database", testDB]
+        process.currentDirectoryURL = directory
+        var env = ProcessInfo.processInfo.environment
+        env["DB_HOST"] = TestDatabase.hostname
+        env["DB_PORT"] = String(TestDatabase.port)
+        env["DB_USER"] = TestDatabase.username
+        env["DB_PASSWORD"] = TestDatabase.password
+        process.environment = env
+        FileManager.default.createFile(atPath: log.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: log)
+        process.standardOutput = handle
+        process.standardError = handle
+        try process.run()
+        try handle.close()
+        return process
+    }
+
+    private func finish(_ processes: [Process]) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while processes.contains(where: \.isRunning) && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        for process in processes {
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+                Issue.record("Migration process timed out")
+            }
+            process.waitUntilExit()
+            #expect(process.terminationStatus == 0)
+        }
+    }
+
+    @Test("Separate CLI processes serialize fresh bootstrap, up, and down")
+    func concurrentMigrationProcesses() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("spectro-processes-\(UUID())")
+        let migrations = directory.appendingPathComponent("Sources/Migrations")
+        try FileManager.default.createDirectory(at: migrations, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try """
+            -- migrate:up
+            SELECT pg_sleep(0.3);
+            CREATE TABLE cli_race (id INT PRIMARY KEY);
+            INSERT INTO cli_race VALUES (1);
+            -- migrate:down
+            SELECT pg_sleep(0.3);
+            DROP TABLE cli_race;
+            """.write(to: migrations.appendingPathComponent("1700000000_race.sql"), atomically: true, encoding: .utf8)
+        let didCreate: Bool = try run(["database", "create", testDB], directory: directory).exitCode == 0
+        try #require(didCreate)
+        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
+        for action in ["up", "down", "up"] {
+            let first = try startMigration(action, directory: directory, log: directory.appendingPathComponent("first.log"))
+            let second = try startMigration(action, directory: directory, log: directory.appendingPathComponent("second.log"))
+            try await finish([first, second])
+            let status = try run(["migrate", "status", "--database", testDB], directory: directory)
+            #expect(status.output.contains(action == "up" ? "1 applied" : "1 pending"), "\(status.output)")
+        }
+    }
+
+    @Test("Terminating a migration process rolls back and releases ownership")
+    func terminatedMigrationProcess() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("spectro-killed-\(UUID())")
+        let migrations = directory.appendingPathComponent("Sources/Migrations")
+        try FileManager.default.createDirectory(at: migrations, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = migrations.appendingPathComponent("1700000000_killed.sql")
+        try """
+            -- migrate:up
+            CREATE TABLE cli_killed (id INT);
+            SELECT pg_sleep(20), 'spectro_kill_probe';
+            -- migrate:down
+            DROP TABLE cli_killed;
+            """.write(to: file, atomically: true, encoding: .utf8)
+        let didCreate: Bool = try run(["database", "create", testDB], directory: directory).exitCode == 0
+        try #require(didCreate)
+        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
+        let observer = try DatabaseConnection(configuration: .init(
+            hostname: TestDatabase.hostname, port: TestDatabase.port, username: TestDatabase.username,
+            password: TestDatabase.password, database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
+        ))
+        let runner = try startMigration("up", directory: directory, log: directory.appendingPathComponent("killed.log"))
+        do {
+            var sleeping = false
+            for _ in 0..<300 {
+                sleeping = try await observer.executeQuery(
+                    sql: "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND query LIKE '%spectro_kill_probe%' AND wait_event = 'PgSleep') AS sleeping",
+                    resultMapper: { $0.makeRandomAccess()[data: "sleeping"].bool == true }
+                ).first == true
+                if sleeping { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            try #require(sleeping)
+            kill(runner.processIdentifier, SIGKILL)
+            runner.waitUntilExit()
+            try """
+                -- migrate:up
+                CREATE TABLE cli_killed (id INT);
+                -- migrate:down
+                DROP TABLE cli_killed;
+                """.write(to: file, atomically: true, encoding: .utf8)
+            let retry = try startMigration("up", directory: directory, log: directory.appendingPathComponent("retry.log"))
+            try await finish([retry])
+            let status = try run(["migrate", "status", "--database", testDB], directory: directory)
+            #expect(status.output.contains("1 applied"))
+        } catch {
+            if runner.isRunning { kill(runner.processIdentifier, SIGKILL); runner.waitUntilExit() }
+            await observer.shutdown()
+            throw error
+        }
+        await observer.shutdown()
+    }
+
     // MARK: - Helpers
 
     private func spectroBinaryPath() throws -> String {
+        if let path = ProcessInfo.processInfo.environment["SPECTRO_CLI_PATH"] { return path }
         // Walk up from the test bundle to find .build/debug/spectro
         let fm = FileManager.default
-        var dir = URL(fileURLWithPath: #file)
+        let dir = URL(fileURLWithPath: #file)
             .deletingLastPathComponent() // CLITests/
             .deletingLastPathComponent() // SpectroTests/
             .deletingLastPathComponent() // Tests/
@@ -159,7 +281,8 @@ struct CLITests {
             """.write(to: migrations.appendingPathComponent("1700000000_cli.sql"), atomically: true, encoding: .utf8)
 
         let created = try run(["database", "create", testDB], directory: directory)
-        try #require(created.exitCode == 0)
+        let didCreate: Bool = created.exitCode == 0
+        try #require(didCreate)
         defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
         let initial = try run(["migrate", firstCommand, "--database", testDB], directory: directory)
         #expect(initial.exitCode == 0, "\(initial.output)")

@@ -25,20 +25,8 @@ struct Rollback: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
-            try await manager.ensureMigrationTableExists()
-            let applied = try await manager.getAppliedMigrations()
-            let count = min(step ?? applied.count, applied.count)
-            guard count > 0 else {
-                SpectroUI.noora.info(.alert(
-                    "No migrations to roll back.",
-                    takeaways: ["Run \(.command("spectro migrate status")) to see current state"]
-                ))
-                await spectro.shutdown()
-                return
-            }
-
             try await SpectroUI.noora.progressStep(
-                message: "Rolling back \(count) migration(s)",
+                message: "Rolling back migrations",
                 successMessage: SpectroUI.randomRollbackApplied(),
                 errorMessage: "Rollback failed",
                 showSpinner: true

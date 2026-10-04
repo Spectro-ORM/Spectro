@@ -137,6 +137,57 @@ public actor DatabaseConnection {
 
     // MARK: - Transactions
 
+    /// Reserve one physical session for a migration command. Session locks must
+    /// span multiple transactions. Always retire this connection before releasing
+    /// the pool slot, so locks and failed transactions cannot leak to another caller.
+    internal func withMigrationSession<T: Sendable>(
+        _ work: @Sendable (TransactionContext) async throws -> T
+    ) async throws -> T {
+        try beginOperation()
+        defer { endOperation() }
+        try Task.checkCancellation()
+        let connection = try await requestMigrationConnection()
+        defer { pools.releaseConnection(connection) }
+        do {
+            let result = try await withTaskCancellationHandler {
+                try Task.checkCancellation()
+                let result = try await work(TransactionContext(connection: connection))
+                try Task.checkCancellation()
+                return result
+            } onCancel: {
+                // Closing an owned session interrupts SQL and releases server locks.
+                // The handler is removed before this connection is returned to the pool.
+                let _: EventLoopFuture<Void> = connection.close()
+            }
+            try await connection.close()
+            return result
+        } catch {
+            try? await connection.close()
+            if Task.isCancelled { throw CancellationError() }
+            throw error
+        }
+    }
+
+    private func requestMigrationConnection() async throws -> PostgresConnection {
+        let request = MigrationConnectionRequest()
+        // AsyncKit cannot remove a queued request. Track it until completion, even
+        // if the caller has already cancelled; a late connection is released unused.
+        try beginOperation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                request.install(continuation)
+                pools.requestConnection().whenComplete { result in
+                    if !request.complete(result), case .success(let connection) = result {
+                        self.pools.releaseConnection(connection)
+                    }
+                    Task { await self.endOperation() }
+                }
+            }
+        } onCancel: {
+            request.cancel()
+        }
+    }
+
     public func transaction<T: Sendable>(
         _ work: @escaping @Sendable (TransactionContext) async throws -> T
     ) async throws -> T {
@@ -355,4 +406,45 @@ public struct TransactionContext: @unchecked Sendable {
 private enum DatabaseConnectionError: Error {
     case connectionClosed
     case invalidConfiguration
+}
+
+/// Synchronizes cancellation with a non-cancellable NIO pool request. The lock
+/// protects only continuation ownership; callbacks always resume outside the lock.
+private final class MigrationConnectionRequest: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<PostgresConnection, any Error>?
+    private var cancelled = false
+    private var completed = false
+
+    func install(_ continuation: CheckedContinuation<PostgresConnection, any Error>) {
+        let cancelled = lock.withLock {
+            if self.cancelled { return true }
+            self.continuation = continuation
+            return false
+        }
+        if cancelled { continuation.resume(throwing: CancellationError()) }
+    }
+
+    func complete(_ result: Result<PostgresConnection, any Error>) -> Bool {
+        let continuation = lock.withLock {
+            completed = true
+            let continuation = self.continuation
+            self.continuation = nil
+            return continuation
+        }
+        guard let continuation else { return false }
+        continuation.resume(with: result)
+        return true
+    }
+
+    func cancel() {
+        let continuation = lock.withLock {
+            guard !completed else { return nil as CheckedContinuation<PostgresConnection, any Error>? }
+            cancelled = true
+            let continuation = self.continuation
+            self.continuation = nil
+            return continuation
+        }
+        continuation?.resume(throwing: CancellationError())
+    }
 }

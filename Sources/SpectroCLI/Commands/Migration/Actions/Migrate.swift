@@ -24,19 +24,8 @@ struct Migrate: AsyncParsableCommand {
 
         let manager = spectro.migrationManager()
         do {
-            try await manager.ensureMigrationTableExists()
-            let pending = try await manager.getPendingMigrations()
-            guard !pending.isEmpty else {
-                SpectroUI.noora.info(.alert(
-                    "No pending migrations.",
-                    takeaways: ["Run \(.command("spectro migrate status")) to see current state"]
-                ))
-                await spectro.shutdown()
-                return
-            }
-
             try await SpectroUI.noora.progressStep(
-                message: "Applying \(pending.count) migration(s)",
+                message: "Applying pending migrations",
                 successMessage: SpectroUI.randomMigrationApplied(),
                 errorMessage: "Migration failed",
                 showSpinner: true
