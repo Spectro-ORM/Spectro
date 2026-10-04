@@ -2,12 +2,15 @@
 """Run the public API consumer against a new, disposable PostgreSQL database."""
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -18,10 +21,34 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "Examples" / "IssueTracker"
 
 
+def default_build_root():
+    # Keep generated bundles outside Documents/Desktop: File Provider can attach
+    # FinderInfo there, which makes Apple's resource-bundle signing fail.
+    cache = (Path.home() / "Library/Caches" if sys.platform == "darwin"
+             else Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")))
+    checkout = hashlib.sha256(os.fsencode(ROOT)).hexdigest()[:16]
+    return cache / "spectro-acceptance" / checkout
+
+
+def swift_build_command(package, scratch):
+    return ["swift", "build", "--package-path", str(package), "--scratch-path", str(scratch)]
+
+
+def executable_path(command, name, override):
+    if override:
+        return Path(override).expanduser().resolve()
+    # SwiftPM's native and SwiftBuild engines use different output layouts.
+    result = subprocess.run([*command, "--show-bin-path"], cwd=ROOT, check=True,
+                            text=True, stdout=subprocess.PIPE)
+    return Path(result.stdout.strip()) / name
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--build-root", type=Path, default=default_build_root(),
+                        help="Persistent build cache; choose a directory outside cloud-synced folders")
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be positive")
@@ -37,12 +64,15 @@ def main():
     env["PGPASSWORD"] = env["DB_PASSWORD"]
     if not shutil.which("psql"):
         raise RuntimeError("Install PostgreSQL client tools (psql) before running acceptance")
+    build_root = args.build_root.expanduser().resolve()
+    cli_build = swift_build_command(ROOT, build_root / "cli")
+    app_build = swift_build_command(EXAMPLE, build_root / "app")
+    print(f"Acceptance build cache: {build_root}", flush=True)
     if not args.skip_build:
-        subprocess.run(["swift", "build", "--jobs", str(args.jobs)], cwd=ROOT, check=True)
-        subprocess.run(["swift", "build", "--package-path", str(EXAMPLE), "--jobs", str(args.jobs)],
-                       cwd=ROOT, check=True)
-    cli = Path(env.get("SPECTRO_CLI_PATH", ROOT / ".build/debug/spectro")).resolve()
-    app = Path(env.get("SPECTRO_EXAMPLE_PATH", EXAMPLE / ".build/debug/IssueTracker")).resolve()
+        for command in (cli_build, app_build):
+            subprocess.run([*command, "--jobs", str(args.jobs)], cwd=ROOT, check=True)
+    cli = executable_path(cli_build, "spectro", env.get("SPECTRO_CLI_PATH"))
+    app = executable_path(app_build, "IssueTracker", env.get("SPECTRO_EXAMPLE_PATH"))
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -189,4 +219,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except subprocess.CalledProcessError as error:
+        if error.stderr:
+            print(error.stderr, file=sys.stderr)
+        print(f"Acceptance command failed (exit {error.returncode}): {shlex.join(error.cmd)}", file=sys.stderr)
+        raise SystemExit(error.returncode) from None

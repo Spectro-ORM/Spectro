@@ -1,5 +1,13 @@
 # Spectro ORM - Current Sprint
 
+## Acceptance build-cache repair — COMPLETE (2026-10-04)
+
+- [x] Reproduce the reported resource-bundle signing failure and isolate FinderInfo as the trigger.
+- [x] Move CLI/application scratch directories into a persistent local cache and discover executable paths through SwiftPM.
+- [x] Verify the exact acceptance command from the new cache, then cached reuse; review and commit the repair.
+
+Verification: the real codesign command fails with FinderInfo and succeeds on the identical clean temporary bundle. The exact `python3 scripts/acceptance.py` command passes from a fresh external cache and on a warm rerun; `--skip-build` also passes. Both generated NIO resource bundles pass strict signature verification and have no FinderInfo/ResourceFork attributes. A controlled failed build retains exit code 17 without a Python traceback and exits before database work. Independent review found no issues; `git diff --check` passes.
+
 ## Join, migration, and application hardening — COMPLETE (2026-10-04)
 
 - [x] Checkpoint the completed correctness fixes on `codex/spectro-hardening` (`f2ab867`).

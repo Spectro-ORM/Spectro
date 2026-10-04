@@ -23,6 +23,8 @@ The acceptance command verifies:
 - A migration that adds and backfills issue priority after records already exist.
 - Server restart, migration rollback/reapply, and preservation of all HTTP-visible data.
 
-`--skip-build` reuses built executables. `SPECTRO_CLI_PATH` and `SPECTRO_EXAMPLE_PATH` can override their paths for a custom SwiftPM scratch directory. Acceptance database assertions use `psql` independently of the ORM.
+Builds use a persistent cache under `~/Library/Caches/spectro-acceptance/` on macOS, with separate directories for this checkout's CLI and HTTP application. Keeping generated bundles outside cloud-synced `Documents` avoids Finder metadata that can cause Apple's code signer to reject them. The first run compiles into this cache; subsequent runs reuse it. Executable locations are obtained from SwiftPM so both build-engine layouts work.
+
+`--build-root /path/to/local/cache` overrides the cache location. `--skip-build` reuses executables from the selected cache. `SPECTRO_CLI_PATH` and `SPECTRO_EXAMPLE_PATH` can point to prebuilt executables instead. Acceptance database assertions use `psql` independently of the ORM.
 
 Routes are `GET /health`, `GET /projects`, `POST /projects`, and `POST /issues`. This is a local correctness fixture: its intentional transaction-failure response includes the formatted error so acceptance exercises that path. Deploying an application requires its own authentication and public error policy.

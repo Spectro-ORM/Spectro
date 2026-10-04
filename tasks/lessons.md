@@ -55,3 +55,7 @@
 - SpectroError.invalidSchema requires label: `reason:`
 - Guard against empty arrays in SQL generation (e.g., empty `set` in upsert produces invalid SQL)
 - Dictionary `.keys` and `.values` iterate in matching order for the same instance, but this is fragile across refactors
+
+## macOS build artifacts
+- A passing acceptance run does not guarantee generated bundles remain signable inside cloud-synced Documents. Reproduced codesign rejection from com.apple.FinderInfo on a generated NIO resource bundle; the identical temporary copy signs until that attribute is restored.
+- Keep acceptance scratch directories in a persistent local cache outside the synced checkout, and ask SwiftPM for --show-bin-path rather than assuming .build/debug across build engines. Preserve actual build failures and executable overrides.
