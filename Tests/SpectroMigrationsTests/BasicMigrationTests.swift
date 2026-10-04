@@ -130,7 +130,7 @@ struct BasicMigrationTests {
 
     struct EmptyMigration: Migration {
         static let id = "1700000006_empty"
-        var change: MigrationPlan {}
+        var change: MigrationPlan { get {} }
     }
 
     @Test("Generated empty declarations cannot be applied")

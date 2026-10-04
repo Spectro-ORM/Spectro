@@ -11,6 +11,10 @@ struct GenerateMigration: AsyncParsableCommand {
     @Option(name: .long, help: "Database Name")     var database: String?
 
     func run() async throws {
+        if let project = try MigrationProject.discover() {
+            try SwiftMigrationGenerator.generate(name: name, project: project)
+            return
+        }
         try await ConfigurationManager.shared.loadEnvFile()
         var overrides: [String: String] = [:]
         if let v = username { overrides["username"] = v }
