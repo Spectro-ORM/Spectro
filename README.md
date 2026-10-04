@@ -750,7 +750,7 @@ The default lock wait is 30 seconds and can be configured with `spectro.migratio
 
 ### Application acceptance
 
-The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On macOS 14+ with Swift 6.3+ and an Xcode 26.3+ SDK selected (required by Peregrine's dependencies), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.0; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
+The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On a compatible macOS build host with Swift 6.3+ and an Xcode 26.3+ SDK selected (macOS 15.6+ for Xcode 26.3), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. These toolchain requirements come from Peregrine's dependencies; the example package's deployment target is macOS 14. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.0; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
 
 ### Generate a migration
 
