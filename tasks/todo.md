@@ -1,5 +1,17 @@
 # Spectro ORM - Current Sprint
 
+## Swift migration distribution and DSL — PLAN PROPOSED (2026-10-04)
+
+- [x] Verify main, origin/main, and the 2.0.0 tag resolve to b13c41c.
+- [x] Isolate the proposal on codex/migrations-design without changing the main checkout.
+- [x] Define package distribution, a consumer migration executable, CLI delegation, and deployment artifacts.
+- [x] Propose a PostgreSQL result-builder DSL with automatic and explicit rollback.
+- [x] Write the [design proposal](../docs/superpowers/specs/2026-10-04-swift-migrations-design.md) and [implementation plan](../docs/superpowers/plans/2026-10-04-swift-migrations.md).
+- [x] Check document links, descriptor JSON, and the Swift syntax of the nine design examples; the proposed API is not implemented or type-checked.
+- [ ] Review the proposed DSL and plan with the user before implementation.
+
+This is documentation only. No migration API, CLI behavior, package product, or runtime test result is claimed by this planning work.
+
 ## Spectro 2.0.0 release preparation — COMPLETE (2026-10-04)
 
 - [x] Audit changes since 1.2.0 and choose 2.0.0 for the new required `Repo` methods and stricter join behavior.
