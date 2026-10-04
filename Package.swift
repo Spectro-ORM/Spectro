@@ -54,12 +54,16 @@ let package = Package(
         ),
         .target(
             name: "SpectroMigrations",
-            dependencies: ["Spectro", "SpectroCommon"],
+            dependencies: [
+                "Spectro", "SpectroCommon",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "SpectroMigrationsTests",
             dependencies: ["SpectroMigrations", "Spectro", "SpectroCommon"],
+            resources: [.copy("Resources/LegacySQL")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
