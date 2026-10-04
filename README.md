@@ -40,6 +40,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - **Pagination and soft deletes** -- counted pages and opt-in deleted-record filtering
 - **Actor-based connection pooling** -- built on SwiftNIO and PostgresKit
 - **Plain SQL migrations** -- timestamped `.sql` files with `-- migrate:up` / `-- migrate:down` markers
+- **Swift migrations (unreleased)** -- an optional `SpectroMigrations` DSL and a project-owned executable; see the [adoption and deployment guide](docs/MIGRATIONS.md)
 - **CLI tool** -- `spectro` binary for database creation, migrations, and status
 - **Swift 6 strict concurrency** -- full `Sendable` compliance across all types
 
@@ -718,14 +719,18 @@ spectro database drop      Drop an existing database
 spectro migrate up         Run all pending migrations
 spectro migrate down       Rollback applied migrations (--step N)
 spectro migrate status     Show migration status
-spectro generate migration <name>   Generate a new SQL migration file
+spectro migrate init --target MyAppMigrations   Scaffold a Swift migration target
+spectro migrate plan       Preview registered Swift migrations offline
+spectro generate migration <name>   Generate Swift when configured, otherwise SQL
 ```
 
-All commands accept `--username`, `--password`, and `--database` flags. Values are resolved in order: CLI flags > `.env` file > environment variables > defaults.
+Legacy database and SQL migration commands accept `--username`, `--password`, and `--database`. Values resolve in order: CLI flags > `.env` file > environment variables > defaults.
+
+The new Swift migration workflow is unreleased and requires a build of this checkout. With `.spectro.json` configured, `up`, `down`, `status`, and `plan` launch the project's compiled migration runtime. Its database commands use flags and process environment; they do not read `.env`. Initialization, generation, help, and planning are offline. See [Swift migrations](docs/MIGRATIONS.md) for setup, the DSL, mixed SQL history, and compiled deployment.
 
 ### Migration files
 
-Migrations are plain SQL in `Sources/Migrations/`, named `<unix_timestamp>_<name>.sql`:
+Without a Swift project descriptor, migrations remain plain SQL in `Sources/Migrations/`, named `<unix_timestamp>_<name>.sql`:
 
 ```sql
 -- migrate:up
@@ -740,7 +745,7 @@ CREATE TABLE "users" (
 DROP TABLE "users";
 ```
 
-The `SQLStatementParser` handles semicolons inside dollar-quoted strings, inline `--` comments, and `/* */` block comments.
+The SQL statement parser handles semicolons inside dollar-quoted and escape strings, quoted identifiers, inline `--` comments, and nested `/* */` comments.
 
 Each migration runs on one PostgreSQL connection in a transaction that includes its tracking update. A failed `up` rolls back its schema changes and remains pending; a failed `down` preserves the applied schema and completed status. Correct the failed SQL and retry. Earlier migrations in the same run remain committed. Migration files must not contain transaction-control statements (`BEGIN`, `COMMIT`, `ROLLBACK`) or commands that cannot run inside a transaction, such as `CREATE INDEX CONCURRENTLY`.
 
@@ -777,13 +782,14 @@ spectro migrate status
 
 ## Architecture
 
-Spectro is organized into four targets:
+Spectro is organized into five production targets:
 
 | Target | Product | Role |
 |---|---|---|
 | `SpectroCommon` | `SpectroCommon` | Shared types (zero external deps): `Inflector`, `MigrationFile`, `MigrationRecord`, error enums, `String.snakeCase()` |
 | `SpectroMacros` | Compiler plugin | `@Schema` macro implementation via SwiftSyntax |
 | `Spectro` | `SpectroKit` | Core ORM library: schemas, query builder, connection pool, migrations |
+| `SpectroMigrations` | `SpectroMigrations` | Optional Swift migration DSL, compiler, registry, executable command |
 | `SpectroCLI` | `spectro` | CLI executable (ArgumentParser-based) |
 
 ### Core actors

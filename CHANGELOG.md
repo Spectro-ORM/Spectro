@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — proposed 2.1.0
+
+- Add the optional `SpectroMigrations` product: deterministic Swift declarations, PostgreSQL compilation, explicit registration, reversible schema operations, references/checks, and explicit SQL/irreversible branches.
+- Ship a project-owned migration executable with offline `plan`, lazy database configuration, bundled SQL history, and strict rollback preflight for missing or irreversible history.
+- Add `spectro migrate init`, configured Swift migration generation, and project-aware command forwarding with exit-status and signal propagation.
+- Share the existing session lock and transactional engine through `MigrationRunner`; retain `MigrationManager` and the legacy SQL CLI APIs.
+- Fix statement splitting for quoted identifiers, PostgreSQL escape strings, bind parameters, and nested comments.
+- Add copied release-artifact and compiler-free Linux deployment acceptance, plus a compiled migration scenario in the HTTP example.
+
+Existing `SpectroKit` consumers need no additional product dependency or protocol changes. The proposed minor version reflects an additive public surface. This entry does not announce a published release; see the [migration guide](docs/MIGRATIONS.md).
+
 ## 2.0.0 — 2026-10-04
 
 Spectro 2.0 focuses on PostgreSQL correctness and application-level validation. It also includes the changeset, pagination, and soft-delete APIs added since 1.2.0.

@@ -22,9 +22,12 @@ The acceptance command verifies:
 - Two competing requests for the same unique slug: one HTTP 201, one HTTP 409, one persisted project and issue.
 - A migration that adds and backfills issue priority after records already exist.
 - Server restart, migration rollback/reapply, and preservation of all HTTP-visible data.
+- A compiled `IssueTrackerMigrations` executable that adopts both unchanged SQL migrations and adds a Swift `archived` column and partial index, with independent `psql` assertions and another HTTP restart.
 
 Builds use a persistent cache under `~/Library/Caches/spectro-acceptance/` on macOS, with separate directories for this checkout's CLI and HTTP application. Keeping generated bundles outside cloud-synced `Documents` avoids Finder metadata that can cause Apple's code signer to reject them. The first run compiles into this cache; subsequent runs reuse it. Executable locations are obtained from SwiftPM so both build-engine layouts work.
 
-`--build-root /path/to/local/cache` overrides the cache location. `--skip-build` reuses executables from the selected cache. `SPECTRO_CLI_PATH` and `SPECTRO_EXAMPLE_PATH` can point to prebuilt executables instead. Acceptance database assertions use `psql` independently of the ORM.
+`--build-root /path/to/local/cache` overrides the cache location. `--skip-build` reuses executables from the selected cache. `SPECTRO_CLI_PATH`, `SPECTRO_EXAMPLE_PATH`, and `SPECTRO_EXAMPLE_MIGRATIONS_PATH` can point to prebuilt executables instead. Acceptance database assertions use `psql` independently of the ORM.
+
+The executable's SQL resources under `Sources/IssueTrackerMigrations/LegacySQL` are byte-for-byte copies of `Migrations/`; keep their IDs and contents unchanged. The [Swift migration guide](../../docs/MIGRATIONS.md) describes explicit registration, configuration, and deployment. `python3 scripts/migrations_acceptance.py` at the repository root exercises a separate Swift 6.0 fixture on macOS and Linux without depending on Peregrine.
 
 Routes are `GET /health`, `GET /projects`, `POST /projects`, and `POST /issues`. This is a local correctness fixture: its intentional transaction-failure response includes the formatted error so acceptance exercises that path. Deploying an application requires its own authentication and public error policy.

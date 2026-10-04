@@ -1,6 +1,6 @@
 # Swift migrations: distribution and DSL proposal
 
-Status: approved by the user; implementation in progress on the isolated branch.
+Status: approved by the user; implementation and local validation complete; independent review in progress on the isolated branch.
 Date: 2026-10-04
 Baseline: main and the peeled 2.0.0 tag both resolve to b13c41cdda2e73fb2a7000399c7d8f450ab05f0e, verified against origin.
 Design branch: codex/migrations-design.
@@ -151,7 +151,7 @@ Keep legacy SQL contents and IDs unchanged when packaging them as resources. Do 
 
 ## Proposed DSL
 
-All examples are proposed API usage; they are not implemented or type-checked against a published library.
+These forms are implemented in the unreleased branch and compiled by public API tests. See [the adoption guide](../../MIGRATIONS.md) for the final workflow.
 
 ### Create a table and index
 

@@ -1,17 +1,19 @@
 # Spectro ORM - Current Sprint
 
-## Swift migration distribution and DSL — IMPLEMENTING (2026-10-04)
+## Swift migration distribution and DSL — REVIEWING (2026-10-04)
 
 - [x] Verify main, origin/main, and the 2.0.0 tag resolve to b13c41c.
 - [x] Isolate the proposal on codex/migrations-design without changing the main checkout.
 - [x] Define package distribution, a consumer migration executable, CLI delegation, and deployment artifacts.
 - [x] Propose a PostgreSQL result-builder DSL with automatic and explicit rollback.
 - [x] Write the [design proposal](../docs/superpowers/specs/2026-10-04-swift-migrations-design.md) and [implementation plan](../docs/superpowers/plans/2026-10-04-swift-migrations.md).
-- [x] Check document links, descriptor JSON, and the Swift syntax of the nine design examples; the proposed API is not implemented or type-checked.
+- [x] Check document links, descriptor JSON, and the Swift syntax of the nine design examples; the six DSL declarations now also compile through public API tests on Swift 6.0 and 6.4.
 - [x] User approved the proposed DSL and implementation plan.
-- [ ] Implement and verify the seven tasks; progress is recorded in the plan's execution ledger.
+- [x] Implement the library, executable contract, CLI, deployment acceptance, and documentation.
+- [x] Pass 410 tests on macOS and Linux, copied release artifacts, the compiler-free runtime container, and original plus extended HTTP acceptance.
+- [ ] Complete the independent whole-branch review and resolve actionable findings.
 
-The planning commit was documentation only. Implementation and validation now proceed in the isolated worktree.
+Implementation remains on the isolated branch. See the [validation report](../docs/superpowers/reports/2026-10-04-swift-migrations-validation.md) and [adoption guide](../docs/MIGRATIONS.md). Hosted CI is configured but has not run for this branch.
 
 ## Spectro 2.0.0 release preparation — COMPLETE (2026-10-04)
 
