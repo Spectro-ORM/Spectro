@@ -7,6 +7,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Upgrading to 2.0](docs/UPGRADING-2.0.md)
 - [Quick Start](#quick-start)
 - [Schema Definition](#schema-definition)
 - [CRUD Operations](#crud-operations)
@@ -35,6 +36,8 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - **Upsert and bulk insert** -- `ON CONFLICT` upserts and multi-row inserts with automatic batching
 - **Relationship preloading** -- batch-loads `HasMany`, `HasOne`, `BelongsTo`, and `ManyToMany` relationships to prevent N+1 queries
 - **Transaction support** -- `READ COMMITTED` isolation with automatic rollback; full CRUD and query builder available inside transactions via `QueryExecutor`
+- **Changesets** -- permitted-field casting, validation, serializable errors, and insert/update inside transactions
+- **Pagination and soft deletes** -- counted pages and opt-in deleted-record filtering
 - **Actor-based connection pooling** -- built on SwiftNIO and PostgresKit
 - **Plain SQL migrations** -- timestamped `.sql` files with `-- migrate:up` / `-- migrate:down` markers
 - **CLI tool** -- `spectro` binary for database creation, migrations, and status
@@ -43,7 +46,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 ## Requirements
 
 - Swift 6.0+ (managed via `mise.toml`)
-- macOS 13+
+- macOS 13+ or Linux
 - PostgreSQL
 
 ## Installation
@@ -53,7 +56,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "1.1.0")
+.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.0.0")
 ```
 
 Then add `"SpectroKit"` to your target's dependencies:
@@ -78,8 +81,10 @@ mint install Spectro-ORM/Spectro
 Pin a version in your `Mintfile`:
 
 ```
-Spectro-ORM/Spectro@1.1.0
+Spectro-ORM/Spectro@2.0.0
 ```
+
+For existing applications, read the [2.0 upgrade guide](docs/UPGRADING-2.0.md) and [release notes](CHANGELOG.md) before updating.
 
 ## Quick Start
 
@@ -163,11 +168,14 @@ struct User {
 | `@ID<T>` | Primary key (UUID, Int, or String) | `@ID var id: UUID` |
 | `@Column<T>` | Regular column, optional name override | `@Column("display_name") var name: String` |
 | `@Timestamp` | Date column | `@Timestamp var createdAt: Date` |
+| `@SoftDelete` | Nullable deletion timestamp | `@SoftDelete var deletedAt: Date?` |
 | `@ForeignKey<T>` | Foreign key reference, optional name override | `@ForeignKey var userId: UUID` |
 | `@HasMany<T>` | One-to-many relationship, optional FK binding | `@HasMany(foreignKey: "authorId") var posts: [Post]` |
 | `@HasOne<T>` | One-to-one relationship | `@HasOne var profile: Profile?` |
 | `@BelongsTo<T>` | Inverse of HasMany/HasOne | `@BelongsTo var user: User?` |
 | `@ManyToMany<T>` | Many-to-many via junction table | `@ManyToMany(junctionTable: "user_tags") var tags: [Tag]` |
+
+Add `@SoftDelete var deletedAt: Date?` and a matching nullable `TIMESTAMPTZ` database column to opt into soft deletes. `@Schema` generates the filtering metadata and timestamp mapping. `repo.delete` records the deletion time; normal reads exclude deleted records, while `repo.query(User.self).withDeleted()` includes them. For manual schemas, implement `softDeleteColumn` with the database column name and decode the timestamp in `build(from:)`.
 
 ### Generic primary keys
 
@@ -809,8 +817,6 @@ Query<T> ──execute──▶ QueryExecutor.executeQuery()
                         ├─ DatabaseConnection (pooled)
                         └─ TransactionContext (pinned connection)
 ```
-
-See [docs/architecture.html](docs/architecture.html) for the full architecture reference with diagrams.
 
 ## Configuration
 

@@ -1,5 +1,19 @@
 # Spectro ORM - Current Sprint
 
+## Spectro 2.0.0 release preparation — COMPLETE (2026-10-04)
+
+- [x] Audit changes since 1.2.0 and choose 2.0.0 for the new required `Repo` methods and stricter join behavior.
+- [x] Update installation versions and prepare release notes and upgrade guidance.
+- [x] Reproduce missing `@Schema` soft-delete filtering, decoding, and JSON with two failing regression tests.
+- [x] Complete and review `@SoftDelete` macro integration, including shared acronym-aware column naming, then pass the updated suite.
+- [x] Sample a stalled test run: the killed CLI child had exited while `Process.waitUntilExit()` remained blocked.
+- [x] Replace async CLI test waits with bounded polling and pass ten consecutive process-termination runs.
+- [x] Review release documentation and verify the release candidate locally.
+
+Verification: 368 tests in 35 suites pass on macOS/Swift 6.4, including the macro soft-delete regression; real HTTP acceptance passes both scenarios. Independent review has no remaining findings. Documentation links and `git diff --check` pass. The sampled process-wait hang and its fix affect the CLI test harness; production migration behavior is unchanged by that repair.
+
+Publication gates: pass hosted macOS/Linux CI and HTTP acceptance, merge to main, verify the merged commit, then publish tag/release 2.0.0. The [GitHub release](https://github.com/Spectro-ORM/Spectro/releases/tag/2.0.0) records the published version; preparation alone does not establish publication or hosted CI success.
+
 ## Acceptance build-cache repair — COMPLETE (2026-10-04)
 
 - [x] Reproduce the reported resource-bundle signing failure and isolate FinderInfo as the trigger.
