@@ -42,7 +42,16 @@ enum MigrationProjectLauncher {
                 let status = child.terminationReason == .uncaughtSignal ? 128 + child.terminationStatus : child.terminationStatus
                 continuation.resume(returning: status)
             }
-            do { try process.run() }
+            do {
+                // Swift's Linux worker threads block signals. Foundation Process
+                // inherits that mask; a child spawned here must receive normal signals.
+                var emptyMask = sigset_t()
+                var previousMask = sigset_t()
+                sigemptyset(&emptyMask)
+                pthread_sigmask(SIG_SETMASK, &emptyMask, &previousMask)
+                defer { pthread_sigmask(SIG_SETMASK, &previousMask, nil) }
+                try process.run()
+            }
             catch { continuation.resume(throwing: error) }
         }
     }
