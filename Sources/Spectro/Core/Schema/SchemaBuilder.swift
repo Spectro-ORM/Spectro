@@ -65,7 +65,7 @@ extension Schema {
         return try buildInstance(from: values)
     }
 
-    private static func buildInstance(from values: [String: Any]) throws -> Self {
+    internal static func buildInstance(from values: [String: Any]) throws -> Self {
         if let builderType = self as? any SchemaBuilder.Type {
             let built = builderType.build(from: values)
             guard let result = built as? Self else {

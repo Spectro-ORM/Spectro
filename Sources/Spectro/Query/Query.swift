@@ -296,6 +296,9 @@ public struct Query<T: Schema>: Sendable {
     // MARK: - Execution
 
     public func all() async throws -> [T] {
+        guard !joins.contains(where: { $0.type == .right }) else {
+            throw SpectroError.invalidSchema(reason: "A right join can have an absent main row and cannot return nonoptional models. Reverse the query and use a left join.")
+        }
         let sql = buildSQL()
         let rows = try await executor.executeQuery(
             sql: sql,
@@ -507,7 +510,9 @@ public struct Query<T: Schema>: Sendable {
     }
 
     private func buildSelectClause() -> String {
-        guard let fields = selectedFields, !fields.isEmpty else { return "*" }
+        guard let fields = selectedFields, !fields.isEmpty else {
+            return joins.isEmpty ? "*" : "\(T.tableName.quoted).*"
+        }
         // selectedFields stores unquoted snake_case names; quote here for SQL
         return fields.sorted().map { $0.quoted }.joined(separator: ", ")
     }

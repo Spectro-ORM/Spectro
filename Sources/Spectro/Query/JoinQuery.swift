@@ -16,19 +16,18 @@ public struct JoinQuery<T: Schema, U: Schema>: Sendable {
 
     /// Execute join query and return tuples of (main, joined) records
     public func all() async throws -> [(T, U?)] {
-        let sql = buildJoinSQL()
+        let main = JoinedProjection<T>(prefix: "__spectro_left")
+        let joined = JoinedProjection<U>(prefix: "__spectro_right")
+        let sql = baseQuery.buildSQL(selectClause: main.selection + ", " + joined.selection)
 
         return try await baseQuery.executor.executeQuery(
             sql: sql,
             parameters: baseQuery.parameters,
             resultMapper: { row in
-                let mainRecord = try T.fromSync(row: row)
-                let joinedRecord: U?
-                do {
-                    joinedRecord = try U.fromSync(row: row)
-                } catch {
-                    joinedRecord = nil
-                }
+                let columns = row.makeRandomAccess()
+                let mainRecord = try main.decode(columns)
+                let absent = try joinClause.type == .left && joined.isAbsent(columns)
+                let joinedRecord = absent ? nil : try joined.decode(columns)
                 return (mainRecord, joinedRecord)
             }
         )
@@ -77,10 +76,47 @@ public struct JoinQuery<T: Schema, U: Schema>: Sendable {
         return JoinQuery(baseQuery: newBaseQuery, joinedSchema: joinedSchema, joinClause: joinClause)
     }
 
-    // MARK: - Private
+}
 
-    private func buildJoinSQL() -> String {
-        baseQuery.buildSQL(selectClause: "\(T.tableName.quoted).*, \(U.tableName.quoted).*")
+/// Each side gets short, unique aliases, independent of column names and PostgreSQL's
+/// identifier length limit. Only a NULL primary key means an absent outer-join row.
+private struct JoinedProjection<Model: Schema>: Sendable {
+    let prefix: String
+    let fields = SchemaRegistry.extractMetadata(from: Model.self).fields
+
+    private func alias(_ index: Int) -> String { "\(prefix)_\(index)" }
+
+    var selection: String {
+        fields.enumerated().map { index, field in
+            "\(Model.tableName.quoted).\(field.databaseName.quoted) AS \(alias(index).quoted)"
+        }.joined(separator: ", ")
+    }
+
+    func isAbsent(_ row: PostgresRandomAccessRow) throws -> Bool {
+        guard let index = fields.firstIndex(where: { $0.isPrimaryKey && !$0.isNullable }),
+              row.contains(alias(index)) else {
+            throw SpectroError.invalidSchema(reason: "A typed left join requires a projected, nonnullable primary key on \(Model.self)")
+        }
+        guard row[data: alias(index)].value == nil else { return false }
+        // A malformed matched row with a NULL key must still fail decoding.
+        return fields.indices.allSatisfy { row.contains(alias($0)) && row[data: alias($0)].value == nil }
+    }
+
+    func decode(_ row: PostgresRandomAccessRow) throws -> Model {
+        var values: [String: Any] = [:]
+        for (index, field) in fields.enumerated() {
+            let column = "\(Model.tableName).\(field.databaseName)"
+            guard row.contains(alias(index)) else {
+                throw SpectroError.resultDecodingFailed(column: column, expectedType: String(describing: field.type))
+            }
+            let data = row[data: alias(index)]
+            if data.value == nil && field.isNullable { continue }
+            guard let value = SchemaMapper.extractValue(from: data, expectedType: field.type) else {
+                throw SpectroError.resultDecodingFailed(column: column, expectedType: String(describing: field.type))
+            }
+            values[field.name] = value
+        }
+        return try Model.buildInstance(from: values)
     }
 }
 
@@ -104,12 +140,29 @@ public struct JoinQueryBuilder<T: Schema, U: Schema>: Sendable {
 extension Query {
     /// Execute as a typed join query.
     ///
-    /// - Throws: `SpectroError.invalidSchema` if no join for `joinedType` was added via `.join()` first.
+    /// Supports inner and left joins with distinct table names. Right joins cannot
+    /// be represented by `(T, U?)`, since the main row can be absent.
+    /// - Throws: `SpectroError.invalidSchema` for missing or unsupported joins.
     public func executeJoin<U: Schema>(with joinedType: U.Type) throws -> JoinQuery<T, U> {
+        guard !joins.contains(where: { $0.type == .right }) else {
+            throw SpectroError.invalidSchema(reason: "Typed right joins require an optional main model and are not supported by (T, U?). Reverse the query and use a left join.")
+        }
+        let tables = [T.tableName] + joins.map(\.table)
+        guard Set(tables).count == tables.count else {
+            throw SpectroError.invalidSchema(reason: "Typed self joins and repeated tables require table aliases, which are not supported yet.")
+        }
         guard let joinClause = joins.first(where: { $0.table == joinedType.tableName }) else {
             throw SpectroError.invalidSchema(
                 reason: "No join found for schema type \(joinedType). Call .join() or .leftJoin() before .executeJoin(with:)."
             )
+        }
+        let mainFields = SchemaRegistry.extractMetadata(from: T.self).fields
+        let joinedFields = SchemaRegistry.extractMetadata(from: U.self).fields
+        guard !mainFields.isEmpty, !joinedFields.isEmpty else {
+            throw SpectroError.invalidSchema(reason: "Typed joins require mapped fields on both schemas.")
+        }
+        if joinClause.type == .left && !joinedFields.contains(where: { $0.isPrimaryKey && !$0.isNullable }) {
+            throw SpectroError.invalidSchema(reason: "A typed left join requires a nonnullable primary key on \(U.self).")
         }
         return JoinQuery(baseQuery: self, joinedSchema: joinedType, joinClause: joinClause)
     }

@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 import PostgresKit
 @testable import Spectro
 
@@ -19,9 +20,36 @@ struct QueryBindingTests {
     }
 
     private struct SoftPost: Schema {
+        @ID var id: UUID
         static let tableName = "soft_posts"
         static var softDeleteColumn: String? { "deleted_at" }
         init() {}
+    }
+
+    private struct KeylessPost: Schema {
+        static let tableName = "keyless_posts"
+        @Column var title: String = ""
+        init() {}
+    }
+
+    @Test("Unsupported typed join shapes fail before executing SQL")
+    func unsupportedJoinShapes() async throws {
+        let recorder = Recorder()
+        let base = Query(schema: TestUser.self, executor: recorder)
+        #expect(throws: SpectroError.self) {
+            try base.join(TestUser.self, on: { _ in QueryCondition(sql: "TRUE") })
+                .executeJoin(with: TestUser.self)
+        }
+        #expect(throws: SpectroError.self) {
+            try base.join(TestPost.self, on: { _ in QueryCondition(sql: "TRUE") })
+                .join(TestPost.self, on: { _ in QueryCondition(sql: "TRUE") })
+                .executeJoin(with: TestPost.self)
+        }
+        #expect(throws: SpectroError.self) {
+            try base.leftJoin(KeylessPost.self, on: { _ in QueryCondition(sql: "TRUE") })
+                .executeJoin(with: KeylessPost.self)
+        }
+        #expect(await recorder.statements.isEmpty)
     }
 
     @Test("Typed joins qualify the implicit soft-delete filter")
