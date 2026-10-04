@@ -44,7 +44,13 @@ jobs:
           swift-version: "6.3.3"
 
       - name: Run HTTP application acceptance
-        run: python3 scripts/acceptance.py
+        env:
+          # Peregrine's swift-configuration dependency needs the newer Foundation SDK.
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-version
+          python3 scripts/acceptance.py
 
       - name: Stop PostgreSQL
         if: always()

@@ -36,6 +36,6 @@ See the [upgrade guide](docs/UPGRADING-2.0.md) for migration examples and operat
 
 - Spectro requires Swift 6.0+ and supports macOS 13+ and Linux with PostgreSQL.
 - The core suite contains 368 tests, including concurrent migration processes, cancellation, and macro-defined soft deletes. CI runs PostgreSQL-backed tests on macOS and Linux.
-- The IssueTracker acceptance application requires macOS 14+ and Swift 6.3+. Its pinned Peregrine 1.2.0 dependency currently prevents that example from building on Linux; Spectro's core Linux support is unaffected.
+- The IssueTracker acceptance application requires macOS 14+, Swift 6.3+, and an Xcode 26.3+ SDK. Its pinned Peregrine 1.2.0 dependency currently prevents that example from building on Linux; Spectro's core Linux support is unaffected.
 
 [Full comparison with 1.2.0](https://github.com/Spectro-ORM/Spectro/compare/1.2.0...2.0.0)

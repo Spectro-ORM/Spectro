@@ -55,4 +55,4 @@ Use `Changeset.cast` for external parameters, with Swift property names in `perm
 
 ## Platform requirements
 
-The library and CLI support Swift 6.0+ on macOS 13+ and Linux. The optional [IssueTracker acceptance application](../Examples/IssueTracker/README.md) requires macOS 14+ and Swift 6.3+ because of its pinned Peregrine dependencies.
+The library and CLI support Swift 6.0+ on macOS 13+ and Linux. The optional [IssueTracker acceptance application](../Examples/IssueTracker/README.md) requires macOS 14+, Swift 6.3+, and an Xcode 26.3+ SDK because of its pinned Peregrine dependencies. A newer Swift toolchain with an older selected Xcode SDK is insufficient.

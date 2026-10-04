@@ -6,6 +6,7 @@
 - Type erasure in generics prevents runtime query building
 
 ## Testing
+- Pin the selected Apple SDK as well as the Swift compiler for the HTTP consumer. Swift 6.3.3 with the macOS runner's default Xcode 16.4 SDK cannot compile `Data.bytes` in `swift-configuration`; select the installed Xcode 26.3 SDK for acceptance.
 - The legacy `setup-swift@v2` version list does not include Swift 6.3. Use the reviewed, pinned Swiftly-backed installer and explicit patch versions for CI toolchain selection.
 - Keep side-effecting C calls outside Swift Testing macros: Swift 6.0 rejects `#require(kill(...) == 0)` even though Swift 6.4 accepts it. Store the boolean result before requiring it and verify the minimum supported compiler in CI.
 - Keep async subprocess waits bounded. A sampled CLI termination test remained inside `Process.waitUntilExit()` after its child was gone; poll `isRunning` with an async deadline before checking termination status.
