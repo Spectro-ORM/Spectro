@@ -3,12 +3,24 @@ import ArgumentParser
 import Spectro
 
 struct GenerateMigration: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "migration")
+    static let configuration = CommandConfiguration(
+        commandName: "migration", abstract: "Generate a Swift declaration when configured, otherwise a SQL migration.",
+        discussion: """
+            With .spectro.json, creates <sourceDirectory>/Migrations/<name>.swift without a \
+            database connection. Fill in the declaration and add the printed registration line \
+            to Migrations.swift. Existing files are never overwritten; registration is explicit.
 
-    @Argument(help: "Name of the migration") var name: String
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
-    @Option(name: .long, help: "Database Name")     var database: String?
+            Without a descriptor, creates Sources/Migrations/<timestamp>_<snake_case_name>.sql \
+            and records it as pending in PostgreSQL. SQL generation requires database access; \
+            credential options override .env in the current directory, then process environment.
+
+            Example: spectro generate migration CreateUsers
+            """)
+
+    @Argument(help: "Migration name; use PascalCase for Swift, for example CreateUsers.") var name: String
+    @Option(name: .long, help: "Database user for SQL generation; unused in Swift mode.") var username: String?
+    @Option(name: .long, help: "Database password for SQL generation; unused in Swift mode.") var password: String?
+    @Option(name: .long, help: "Database name for SQL generation; unused in Swift mode.") var database: String?
 
     func run() async throws {
         if let project = try MigrationProject.discover() {

@@ -6,13 +6,21 @@ import PostgresKit
 import SpectroCommon
 
 struct Create: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "create", abstract: "Create a new database")
+    static let configuration = CommandConfiguration(
+        commandName: "create", abstract: "Create a PostgreSQL database.",
+        discussion: """
+            Supply the name as an argument or with --database. Connects to the postgres \
+            maintenance database using credential options, .env or process environment. \
+            Does not apply migrations; run 'spectro migrate up' afterward.
+
+            Example: spectro database create myapp_dev
+            """)
 
     @Argument(help: "Name of the database to create")
     var name: String?
 
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
+    @Option(name: .long, help: "Override the configured database user (DB_USER).") var username: String?
+    @Option(name: .long, help: "Override the configured database password (DB_PASSWORD).") var password: String?
     @Option(name: .long, help: "Database Name (alternative to positional argument)") var database: String?
 
     func run() async throws {

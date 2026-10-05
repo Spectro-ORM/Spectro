@@ -4,7 +4,8 @@ import SpectroCommon
 
 struct Test: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "test"
+        commandName: "test",
+        abstract: "Inspect snake_case and PascalCase conversion."
     )
 
     @Argument(help: "String to convert")

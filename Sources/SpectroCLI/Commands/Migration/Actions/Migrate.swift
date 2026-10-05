@@ -3,11 +3,20 @@ import ArgumentParser
 import Spectro
 
 struct Migrate: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "up")
+    static let configuration = CommandConfiguration(
+        commandName: "up", abstract: "Apply all pending migrations in ascending ID order.",
+        discussion: """
+            With .spectro.json, launches the project's Swift migration executable. Otherwise, \
+            reads SQL files from Sources/Migrations in the current directory.
 
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
-    @Option(name: .long, help: "Database Name")     var database: String?
+            Each migration and its ledger update share a transaction. A failing migration rolls \
+            back its changes; earlier successful migrations remain committed. Completed IDs are skipped. \
+            Use 'spectro migrate status' to inspect progress or 'spectro help migrate' for configuration.
+            """)
+
+    @Option(name: .long, help: "Override the configured database user (DB_USER).") var username: String?
+    @Option(name: .long, help: "Override the configured database password (DB_PASSWORD).") var password: String?
+    @Option(name: .long, help: "Override the configured database name (DB_NAME).") var database: String?
 
     func run() async throws {
         try await ConfigurationManager.shared.loadEnvFile()

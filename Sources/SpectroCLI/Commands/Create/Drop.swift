@@ -6,13 +6,21 @@ import PostgresKit
 import SpectroCommon
 
 struct Drop: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "drop", abstract: "Drop an existing database")
+    static let configuration = CommandConfiguration(
+        commandName: "drop", abstract: "Drop a PostgreSQL database after confirmation.",
+        discussion: """
+            Supply the name as an argument or with --database. Terminates other sessions \
+            connected to that database before dropping it. --force skips the confirmation prompt. \
+            Uses credential options, .env or process environment for the maintenance connection.
+
+            Example: spectro database drop myapp_dev
+            """)
 
     @Argument(help: "Name of the database to drop")
     var name: String?
 
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
+    @Option(name: .long, help: "Override the configured database user (DB_USER).") var username: String?
+    @Option(name: .long, help: "Override the configured database password (DB_PASSWORD).") var password: String?
     @Option(name: .long, help: "Database Name (alternative to positional argument)") var database: String?
     @Flag(name: .long, help: "Skip confirmation prompt") var force: Bool = false
 

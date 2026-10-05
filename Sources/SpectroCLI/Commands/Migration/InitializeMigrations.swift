@@ -2,8 +2,19 @@ import ArgumentParser
 import Foundation
 
 struct InitializeMigrations: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "init", abstract: "Scaffold a project's Swift migration executable.")
-    @Option(name: .long) var target: String
+    static let configuration = CommandConfiguration(
+        commandName: "init", abstract: "Scaffold a project's Swift migration executable.",
+        discussion: """
+            Run inside a Swift package. Creates .spectro.json and Sources/<target> with an entry \
+            point, explicit migration registry and Migrations directory. No database is needed. \
+            Existing descriptors and target directories are never overwritten.
+
+            Add the printed executable target to Package.swift; this command leaves the manifest \
+            unchanged. Then generate a declaration, fill in its operations and register it.
+
+            Example: spectro migrate init --target MyAppMigrations
+            """)
+    @Option(name: .long, help: "PascalCase executable target name, for example MyAppMigrations.") var target: String
 
     func run() throws {
         try MigrationProject.validateTypeName(target)
@@ -61,11 +72,22 @@ struct InitializeMigrations: ParsableCommand {
 }
 
 struct PlanMigrations: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "plan", abstract: "Preview the configured project's migrations offline.")
-    @Option(name: .long) var migration: String?
-    @Option(name: .long) var direction: String = "up"
+    static let configuration = CommandConfiguration(
+        commandName: "plan", abstract: "Preview registered migrations without connecting to PostgreSQL.",
+        discussion: """
+            Requires a .spectro.json and a compiled Swift migration target. SwiftPM may build \
+            the target first. Shows all registered migrations, regardless of database status. \
+            Up follows ascending migration IDs; down follows descending IDs and rollback order. \
+            Unknown IDs and irreversible down previews fail before printing a partial plan.
+
+            Examples:
+              spectro migrate plan
+              spectro migrate plan --direction down
+              spectro migrate plan --migration 1791129600_create_users --direction down
+            """)
+    @Option(name: .long, help: "Preview one full migration ID, including its timestamp and name.") var migration: String?
+    @Option(name: .long, help: "SQL direction to preview: up or down.") var direction: String = "up"
     func run() throws {
         throw ValidationError("No Swift migrations configured in this package. Run spectro migrate init --target AppMigrations.")
     }
 }
-

@@ -8,6 +8,7 @@
 - Share the existing session lock and transactional engine through `MigrationRunner`; retain `MigrationManager` and the legacy SQL CLI APIs.
 - Fix statement splitting for quoted identifiers, PostgreSQL escape strings, bind parameters, and nested comments.
 - Add copied release-artifact and compiler-free Linux deployment acceptance, plus a compiled migration scenario in the HTTP example.
+- Document Swift target setup, explicit registration, SQL adoption, exported configuration, and compiled deployment; expand launcher and project-executable help with examples, preview options, and rollback defaults.
 
 Existing `SpectroKit` consumers need no additional product dependency or protocol changes. The proposed minor version reflects an additive public surface. This entry does not announce a published release; see the [migration guide](docs/MIGRATIONS.md).
 

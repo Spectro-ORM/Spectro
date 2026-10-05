@@ -3,12 +3,24 @@ import ArgumentParser
 import Spectro
 
 struct Rollback: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "down")
+    static let configuration = CommandConfiguration(
+        commandName: "down", abstract: "Roll back applied migrations in descending ID order.",
+        discussion: """
+            Omitting --step rolls back all applied migrations. Use --step 1 for only the newest \
+            migration; --step 0 rolls back nothing.
 
-    @Option(name: .long, help: "Number of migrations to rollback") var step: Int?
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
-    @Option(name: .long, help: "Database Name")     var database: String?
+            With .spectro.json, launches the project's Swift migration executable, which rejects \
+            a selected batch containing missing or irreversible history before any changes. \
+            Otherwise, uses SQL files in Sources/Migrations in the current directory. \
+            Deleted data is restored only if the migration explicitly provides that recovery.
+
+            Example: spectro migrate down --step 1
+            """)
+
+    @Option(name: .long, help: "Number to roll back. Omit for all; zero rolls back nothing.") var step: Int?
+    @Option(name: .long, help: "Override the configured database user (DB_USER).") var username: String?
+    @Option(name: .long, help: "Override the configured database password (DB_PASSWORD).") var password: String?
+    @Option(name: .long, help: "Override the configured database name (DB_NAME).") var database: String?
 
     func run() async throws {
         try await ConfigurationManager.shared.loadEnvFile()

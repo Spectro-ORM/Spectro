@@ -104,14 +104,39 @@ public enum MigrationCommand {
 private struct Root: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "migrations",
         abstract: "Run this project's registered PostgreSQL migrations.",
+        discussion: """
+            Run plan to preview registered SQL without a database; run status to compare the \
+            registry with applied history. Up applies pending IDs; down rolls back completed IDs.
+
+            Database commands use DB_HOST (default localhost), DB_PORT (default 5432), \
+            DB_USER, DB_PASSWORD and DB_NAME from process environment. User, password and \
+            database are required unless supplied by credential options or the application's \
+            configuration provider. .env files are not loaded automatically.
+
+            Deploy this executable with its SQL resource bundles and required runtime libraries. \
+            Running the built artifact requires no Swift compiler, SwiftPM or installed spectro CLI.
+            """,
         subcommands: [Up.self, Down.self, Status.self, Plan.self])
 }
 private struct Up: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "up", abstract: "Apply pending migrations.")
+    static let configuration = CommandConfiguration(commandName: "up",
+        abstract: "Apply pending migrations in ascending ID order.",
+        discussion: """
+            Completed IDs are skipped. Each migration and its ledger update share a transaction; \
+            a failure rolls back that migration while earlier successful migrations remain committed. \
+            Uses process environment or the application's configuration provider, plus credential options.
+            """)
     @OptionGroup var credentials: MigrationCredentials
 }
 private struct Down: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "down", abstract: "Roll back migrations; omit --step to roll back all.")
+    static let configuration = CommandConfiguration(commandName: "down",
+        abstract: "Roll back migrations; omit --step to roll back all.",
+        discussion: """
+            Rolls back completed IDs in descending order. Missing or irreversible migrations in \
+            the selected batch fail preflight before any changes. Use --step 1 for the newest ID. \
+            Zero is a no-op without loading database configuration; negative values are rejected. \
+            Schema rollback does not recover deleted data unless the migration explicitly does so.
+            """)
     @OptionGroup var credentials: MigrationCredentials
     @Option(name: .long, help: "Number to roll back. Zero does nothing; omitted means all.") var step: Int?
     mutating func validate() throws {
@@ -119,12 +144,25 @@ private struct Down: ParsableCommand {
     }
 }
 private struct Status: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "status", abstract: "Read migration status without creating the ledger.")
+    static let configuration = CommandConfiguration(commandName: "status",
+        abstract: "Read migration status without creating the ledger.",
+        discussion: """
+            Requires database access. Reports registered IDs and their status, plus applied IDs \
+            missing from this artifact. A fresh database is inspected without creating schema_migrations. \
+            Use plan for a preview without a database connection.
+            """)
     @OptionGroup var credentials: MigrationCredentials
 }
 private enum Direction: String, ExpressibleByArgument { case up, down }
 private struct Plan: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "plan", abstract: "Preview all registered migrations offline.")
-    @Option(name: .long) var migration: String?
-    @Option(name: .long) var direction: Direction = .up
+    static let configuration = CommandConfiguration(commandName: "plan",
+        abstract: "Preview registered migrations without connecting to PostgreSQL.",
+        discussion: """
+            Shows all registered migrations, regardless of database status. Up follows ascending \
+            IDs; down follows descending IDs and each migration's rollback order. Use --migration \
+            to select one full ID. Unknown IDs and irreversible down previews fail before printing \
+            a partial plan. Does not load database configuration or check live schema/SQL validity.
+            """)
+    @Option(name: .long, help: "Preview one full migration ID, including its timestamp and name.") var migration: String?
+    @Option(name: .long, help: "SQL direction to preview: up or down.") var direction: Direction = .up
 }

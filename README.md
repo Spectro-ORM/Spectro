@@ -19,6 +19,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - [JSON Encoding](#json-encoding)
 - [Field Selection](#field-selection)
 - [CLI Reference](#cli-reference)
+- [Swift Migration Guide](docs/MIGRATIONS.md)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Development](#development)
@@ -86,6 +87,8 @@ Spectro-ORM/Spectro@2.0.0
 ```
 
 For existing applications, read the [2.0 upgrade guide](docs/UPGRADING-2.0.md) and [release notes](CHANGELOG.md) before updating.
+
+The Swift migration DSL and project launcher are **unreleased**. The 2.0.0 package and Mint pin above provide the published SQL workflow. To try Swift migrations from this checkout, follow the [local dependency and CLI setup](docs/MIGRATIONS.md#set-up-a-target).
 
 ## Quick Start
 
@@ -713,20 +716,46 @@ let quads: [Tuple4<UUID, String, String, Bool>] = try await repo.query(User.self
 
 ## CLI Reference
 
-```
-spectro database create    Create a new PostgreSQL database
-spectro database drop      Drop an existing database
-spectro migrate up         Run all pending migrations
-spectro migrate down       Rollback applied migrations (--step N)
-spectro migrate status     Show migration status
-spectro migrate init --target MyAppMigrations   Scaffold a Swift migration target
-spectro migrate plan       Preview registered Swift migrations offline
-spectro generate migration <name>   Generate Swift when configured, otherwise SQL
-```
+| Command | Purpose |
+|---|---|
+| `spectro database create <name>` | Create a PostgreSQL database |
+| `spectro database drop <name>` | Confirm and drop a database; `--force` skips confirmation |
+| `spectro migrate init --target MyAppMigrations` | Scaffold a Swift migration target and print its manifest declaration |
+| `spectro generate migration CreateUsers` | Generate Swift when configured, otherwise SQL |
+| `spectro migrate plan [--migration <id>] [--direction up\|down]` | Preview registered migrations without connecting to PostgreSQL |
+| `spectro migrate up` | Apply all pending migrations |
+| `spectro migrate down --step 1` | Roll back the newest completed migration; **omit `--step` to roll back all** |
+| `spectro migrate status` | Read migration status without creating the tracking table |
+| `spectro help migrate <command>` | Show command help without building the project |
 
 Legacy database and SQL migration commands accept `--username`, `--password`, and `--database`. Values resolve in order: CLI flags > `.env` file > environment variables > defaults.
 
-The new Swift migration workflow is unreleased and requires a build of this checkout. With `.spectro.json` configured, `up`, `down`, `status`, and `plan` launch the project's compiled migration runtime. Its database commands use flags and process environment; they do not read `.env`. Initialization, generation, help, and planning are offline. See [Swift migrations](docs/MIGRATIONS.md) for setup, the DSL, mixed SQL history, and compiled deployment.
+With `.spectro.json` configured, `up`, `down`, `status`, and `plan` launch the project's compiled migration executable through SwiftPM. Its database commands use flags and process environment; they do not automatically read `.env`. Initialization, Swift generation, help, and planning need no database; SwiftPM may still resolve dependencies and build the executable. See the [complete CLI reference](docs/CLI.md) for options, workflow selection, credentials, and exit status.
+
+### Swift migration declarations
+
+Add the optional `SpectroMigrations` product to a dedicated executable target. Declare changes and register each migration explicitly:
+
+```swift
+import SpectroMigrations
+
+struct CreateUsers: Migration {
+    static let id = "1791129600_create_users"
+
+    var change: MigrationPlan {
+        CreateTable("users") { table in
+            table.column("id", .uuid).primaryKey().default(.sql("gen_random_uuid()"))
+            table.column("email", .text).notNull()
+            table.timestamps()
+        }
+        CreateIndex("users_email_index", on: "users", columns: ["email"]).unique()
+    }
+}
+```
+
+The compiler derives rollback in reverse order: drop the index, then the table. `Reversible`, paired `SQL(up:down:)`, and `Irreversible` cover changes that need an explicit policy. Existing SQL files can be bundled unchanged alongside new Swift declarations, using the same migration history.
+
+The [migration guide](docs/MIGRATIONS.md) walks through target setup, registration, SQL adoption, and deployment. During development, `spectro` launches the project executable; production runs the built executable with its resources and runtime libraries, without SwiftPM, Mint, or a compiler.
 
 ### Migration files
 
@@ -757,11 +786,13 @@ The default lock wait is 30 seconds and can be configured with `spectro.migratio
 
 The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On a compatible macOS build host with Swift 6.3+ and an Xcode 26.3+ SDK selected (macOS 15.6+ for Xcode 26.3), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. These toolchain requirements come from Peregrine's dependencies; the example package's deployment target is macOS 14. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.0; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
 
-### Generate a migration
+### Generate a SQL migration
+
+In a project without `.spectro.json`, generation needs database access to record the pending migration:
 
 ```bash
 spectro generate migration CreateUsers
-# Creates: Sources/Migrations/<unix_timestamp>_CreateUsers.sql
+# Creates: Sources/Migrations/<unix_timestamp>_create_users.sql
 ```
 
 ### Run migrations
@@ -838,7 +869,7 @@ DB_NAME=myapp_dev
 
 ### .env file
 
-Create a `.env` file in your project root. The CLI reads it automatically:
+Legacy SQL migration and database commands read `.env` from the current directory. Run them from your project root to use a file there:
 
 ```
 DB_HOST=localhost
@@ -847,6 +878,8 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_NAME=myapp_dev
 ```
+
+Compiled Swift migration executables do not automatically load `.env`. Export these values in the process environment, or supply an explicit configuration provider. See the [CLI configuration reference](docs/CLI.md#database-configuration) for defaults and precedence in each workflow.
 
 ### Programmatic configuration
 
@@ -900,7 +933,7 @@ swift build -c release
 swift build --product spectro
 
 # Run CLI from source
-./.build/debug/spectro migrate status
+"$(swift build --show-bin-path)/spectro" --help
 ```
 
 ### Dependencies
@@ -938,6 +971,7 @@ export TEST_DB_NAME=spectro_test
 
 ```bash
 # All tests
+swift build --product spectro
 swift test
 
 # Specific suite
@@ -948,7 +982,12 @@ swift test --filter QueryTests
 
 # Aggregate tests
 swift test --filter AggregateQueryTests
+
+# Migration DSL and executable command tests (no database needed)
+swift test --filter SpectroMigrationsTests
 ```
+
+With an external scratch directory, set `SPECTRO_CLI_PATH` to its built `spectro` executable when running CLI tests. The [migration artifact acceptance](docs/MIGRATIONS.md#verify-the-distribution-contract) additionally checks copied binaries, SQL resources, interruption, and compiler-free deployment.
 
 ### Test structure
 
@@ -974,10 +1013,17 @@ Tests/SpectroTests/
 │   ├── NonUUIDPrimaryKeyTests.swift # Int and String PK support
 │   ├── UpsertBulkInsertTests.swift  # Upsert and insertAll
 │   └── TransactionTests.swift    # Transaction isolation and rollback
+├── CLITests/                     # Real SQL commands, scaffolding and launcher supervision
 └── MigrationTests/
+    ├── MigrationManagerTests.swift
+    ├── MigrationRunnerTests.swift
+    ├── MigrationDSLIntegrationTests.swift
+    ├── MigrationSQLBoundaryTests.swift
     ├── SQLStatementParserTests.swift
     └── StringCase.swift          # snake_case conversion
 ```
+
+`Tests/SpectroMigrationsTests/` covers the DSL, compiler, registry, command parsing, and documentation examples without a database. `Tests/Fixtures/SwiftMigrationsConsumer/` is a separate consumer package used by the release-artifact acceptance harness.
 
 ## Troubleshooting
 

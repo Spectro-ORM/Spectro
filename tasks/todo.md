@@ -12,6 +12,7 @@
 - [x] Implement the library, executable contract, CLI, deployment acceptance, and documentation.
 - [x] Pass 413 tests on macOS and Linux, copied release artifacts, the compiler-free runtime container, and original plus extended HTTP acceptance.
 - [x] Complete the independent whole-branch review; reproduce and fix SQL comment boundaries, CLI test environment assumptions, and down preview ordering, then repeat affected validation.
+- [x] Refresh the README, migration guide, complete CLI reference, example commands, and CLI help; pass 27 targeted tests, 37 help invocations with invalid database configuration, and documentation checks.
 
 Implementation remains on the isolated branch. See the [validation report](../docs/superpowers/reports/2026-10-04-swift-migrations-validation.md) and [adoption guide](../docs/MIGRATIONS.md). Hosted CI is configured but has not run for this branch.
 

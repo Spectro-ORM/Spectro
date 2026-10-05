@@ -7,12 +7,20 @@ import SpectroCommon
 struct Status: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "status",
-        abstract: "Display status of all migrations"
+        abstract: "Read migration status without creating the tracking table.",
+        discussion: """
+            With .spectro.json, compares the project's registered migrations to database history \
+            and reports applied IDs missing from the artifact. Otherwise, lists SQL files from \
+            Sources/Migrations in the current directory with their recorded status.
+
+            Requires database access but does not create the schema_migrations table. \
+            Use 'spectro migrate plan' for a preview without a database in Swift mode.
+            """
     )
 
-    @Option(name: .long, help: "Database Username") var username: String?
-    @Option(name: .long, help: "Database Password") var password: String?
-    @Option(name: .long, help: "Database Name")     var database: String?
+    @Option(name: .long, help: "Override the configured database user (DB_USER).") var username: String?
+    @Option(name: .long, help: "Override the configured database password (DB_PASSWORD).") var password: String?
+    @Option(name: .long, help: "Override the configured database name (DB_NAME).") var database: String?
 
     func run() async throws {
         try await ConfigurationManager.shared.loadEnvFile()

@@ -55,3 +55,9 @@ The independent whole-branch review completed on 2026-10-05 against b13c41c..7ab
 After these fixes, both full suites passed all 413 tests, both copied-release acceptance runs passed, the rebuilt compiler-free container passed, and the original plus extended HTTP acceptance passed. No deferred minor findings remain. The reviewer left the legacy compatibility policy and arbitrary SQL grammar validation to the implementer; both decisions are recorded above.
 
 All work remains on codex/migrations-design. Main and the published 2.0.0 tag are unchanged; hosted CI, merging and publication remain outside this local implementation.
+
+## Documentation and help follow-up — 2026-10-05
+
+Updated the README, migration guide, [complete CLI reference](../../CLI.md), IssueTracker instructions, and changelog. Source changes are limited to ArgumentParser help metadata: workflow selection, initialization and explicit registration, generation behavior, preview order/options, rollback defaults, environment configuration, and command examples.
+
+Built the launcher and the separate release-mode consumer on macOS/Swift 6.4. All 27 focused DSL/command/launcher tests passed. All 37 help invocations passed with an invalid database port and absent credentials, covering launcher help, configured project forwarding, help aliases, and the directly invoked executable. Rendered output was inspected for paragraph wrapping and option descriptions. Local documentation links, anchors, and fences passed validation; all 22 shell example blocks parsed with `bash -n`.

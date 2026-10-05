@@ -4,6 +4,17 @@ This is an additive, **unreleased** feature built from Spectro 2.0.0. It adds th
 
 Your application owns a compiled migration executable. The installed spectro CLI scaffolds files and launches that executable through SwiftPM during development. Production runs the built executable directly. Keep the app and migration target in the same package and commit Package.resolved so they use the same dependency versions.
 
+- [Set up a target](#set-up-a-target)
+- [Declare historical changes](#declare-historical-changes)
+- [Explicit rollback and SQL](#explicit-rollback-and-sql)
+- [Commands and configuration](#commands-and-configuration)
+- [Adopt existing SQL](#adopt-existing-sql)
+- [Deploy a compiled artifact](#deploy-a-compiled-artifact)
+- [Verify the distribution contract](#verify-the-distribution-contract)
+- [Troubleshooting](#troubleshooting)
+
+For every command and option, see the [CLI reference](CLI.md).
+
 ## Set up a target
 
 For this checkout, a consumer package can use a local dependency:
@@ -12,7 +23,16 @@ For this checkout, a consumer package can use a local dependency:
 .package(name: "Spectro", path: "../Spectro")
 ~~~
 
-Build the CLI from this checkout, or use an installed CLI version that includes this feature. From your application package:
+The published 2.0.0 CLI does not include this workflow. Build the CLI from this checkout and put the resulting executable on your shell's path. This example uses an external cache to keep generated artifacts outside the source checkout:
+
+~~~sh
+# Run from this Spectro checkout.
+swift build --scratch-path "$HOME/.cache/spectro-cli" --product spectro
+export PATH="$(swift build --scratch-path "$HOME/.cache/spectro-cli" --show-bin-path):$PATH"
+spectro migrate --help
+~~~
+
+Then change to your application package and initialize the target:
 
 ~~~sh
 spectro migrate init --target MyAppMigrations
@@ -49,7 +69,7 @@ Generate a declaration:
 spectro generate migration CreateUsers
 ~~~
 
-The command creates a Swift file and prints the registration line to add to Migrations.swift:
+The command creates `Sources/MyAppMigrations/Migrations/CreateUsers.swift` and prints the registration line to add to `Migrations.swift`:
 
 ~~~swift
 import SpectroMigrations
@@ -195,16 +215,21 @@ Raw SQL runs in the same transaction as typed operations and the ledger update. 
 ## Commands and configuration
 
 ~~~sh
+spectro migrate --help
+spectro help migrate plan
 spectro migrate plan
+spectro migrate plan --direction down
 spectro migrate plan --migration 1791129600_create_users --direction down
 spectro migrate up
 spectro migrate status
 spectro migrate down --step 1
 ~~~
 
-Without the installed CLI, use swift run MyAppMigrations followed by the same subcommand and options.
+Without the installed CLI, use `swift run MyAppMigrations` followed by the same subcommand and options. The built executable also provides help: `MyAppMigrations --help` or `MyAppMigrations down --help`.
 
-plan is offline and previews **all registered migrations**, not the database's pending set. Unknown IDs and irreversible down previews fail. status reads the ledger without creating it, and reports applied IDs missing from the artifact.
+`plan` previews **all registered migrations** without connecting to PostgreSQL, regardless of the database's applied state. `--migration` selects one full ID; `--direction` accepts `up` (the default) or `down`. Up previews follow ascending IDs, and down previews follow descending IDs and each migration's rollback order. Unknown IDs and irreversible down previews fail before printing a partial plan.
+
+“Offline” means no database access: SwiftPM may still resolve dependencies or compile the project. Planning validates definitions and statement boundaries; PostgreSQL validates full SQL syntax and schema references at execution. `status` reads the ledger without creating it and reports applied IDs missing from the artifact.
 
 **Omitting --step rolls back all completed migrations.** Zero is a no-op; negative values are rejected. Rollback preflights the selected applied IDs before executing anything. Missing history never causes an older migration to be rolled back instead.
 
@@ -219,6 +244,17 @@ The executable loads configuration only for database commands:
 | DB_NAME | Required unless --database supplies it |
 
 The executable reads process environment, **not .env files**. Export values in your shell or deployment configuration. The legacy SQL CLI retains its existing flags > .env > environment > defaults precedence. Swift generation and initialization do not need credentials.
+
+~~~sh
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD=postgres
+export DB_NAME=myapp_dev
+spectro migrate up
+~~~
+
+The database must already exist. Use `spectro database create myapp_dev` or your usual database provisioning process first. Unlike Swift generation, legacy SQL generation requires database access to record its pending migration. See the [CLI reference](CLI.md#database-configuration) for the two configuration policies.
 
 A custom configuration provider can return Spectro.DatabaseConfiguration, including TLS and pool settings:
 
@@ -300,3 +336,17 @@ Build with the Swift version used by Dockerfile.runtime. The fixture includes ad
 
 The [IssueTracker example](../Examples/IssueTracker/README.md) adds a compiled Swift migration to its existing SQL history and verifies data over HTTP after rollback/reapply and restart. Its Peregrine toolchain requirements are separate from Spectro's Swift 6.0 floor.
 
+## Troubleshooting
+
+| Symptom | What to check |
+|---|---|
+| `migrate init` or `plan` is unknown | Build the CLI from this checkout. The released 2.0.0 CLI does not include these commands. |
+| `No Swift migrations configured in this package` | Run `init` in the application package and keep `.spectro.json` beside its `Package.swift`. Discovery stops at the nearest package boundary. |
+| SwiftPM cannot find the migration product | Add the executable target printed by `init` to `Package.swift`; match its product name to `.spectro.json`. |
+| A generated declaration is absent from `plan` | Add its instance to `MigrationRegistry` in `Migrations.swift`. Source files are not registered automatically. |
+| `Migration is empty` | Fill the generated `change` body before registering and applying it. |
+| Credentials are missing although `.env` exists | Export `DB_USER`, `DB_PASSWORD`, and `DB_NAME`, pass credential options, or provide application configuration. The executable does not automatically load `.env`. |
+| SwiftPM fails while requesting command help | Use `spectro help migrate <command>` for the launcher's reference without building the project. |
+| SQL resources are missing after deployment | Copy the SwiftPM resource bundles beside the executable; run from the complete artifact. |
+| Rollback reports missing history | Deploy an artifact containing the applied IDs. Keep existing SQL filenames, contents, and registration unchanged. |
+| A down preview fails on an irreversible migration | The whole-catalog down plan includes that migration. Inspect a specific reversible ID with `--migration`; this does not change what an actual rollback batch may select. |
