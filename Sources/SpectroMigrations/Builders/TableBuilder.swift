@@ -1,3 +1,4 @@
+/// Column and check-constraint declarations collected by ``TableBuilder``.
 public struct TableElements: Sendable {
     internal let columns: [ColumnDefinition]
     internal let checks: [TableCheck]
@@ -9,6 +10,7 @@ public struct TableElements: Sendable {
 
 internal struct TableCheck: Sendable { let name: String; let sql: String }
 
+/// Collects columns, timestamp helpers, and checks for ``CreateTable``.
 @resultBuilder
 public enum TableBuilder {
     public static func buildExpression(_ column: ColumnDefinition) -> TableElements { TableElements([column]) }
@@ -23,12 +25,17 @@ public enum TableBuilder {
     }
 }
 
+/// The column and constraint factory supplied to a ``CreateTable`` closure.
 public struct TableDefinitionContext: Sendable {
     internal init() {}
+    /// Declares a nullable column; use modifiers to add constraints or a default.
     public func column(_ name: String, _ type: MigrationColumnType) -> ColumnDefinition { .init(name: name, type: type) }
+    /// Declares a named check using a trusted PostgreSQL expression.
     public func check(_ name: String, sql: String) -> TableElements { TableElements([], checks: [.init(name: name, sql: sql)]) }
 
-    /// Insert-time defaults only; no update trigger is created.
+    /// Adds `created_at` and `updated_at` as nonnullable timestamp-with-time-zone columns.
+    ///
+    /// Both default to `CURRENT_TIMESTAMP` on insert. No update trigger is created.
     public func timestamps() -> TableElements {
         TableElements(["created_at", "updated_at"].map {
             column($0, .timestamptz).notNull().default(.sql("CURRENT_TIMESTAMP"))

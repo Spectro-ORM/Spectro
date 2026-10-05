@@ -1,5 +1,6 @@
 import Foundation
 
+/// SQL migration file and session-lock errors.
 public enum MigrationError: Error, LocalizedError {
     case fileExists(String)
     case invalidMigrationName(String)

@@ -2,12 +2,15 @@
 
 A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas, a composable query builder, actor-based concurrency, and a CLI for migrations.
 
+Browse guides and searchable API reference with the [DocC documentation](Documentation/README.md). Build the site locally with `python3 scripts/build_docs.py`.
+
 ## Table of Contents
 
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Upgrading to 2.0](docs/UPGRADING-2.0.md)
+- [Documentation website](Documentation/README.md)
+- [Upgrading to 2.1](docs/UPGRADING-2.1.md)
 - [Quick Start](#quick-start)
 - [Schema Definition](#schema-definition)
 - [CRUD Operations](#crud-operations)
@@ -41,13 +44,13 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 - **Pagination and soft deletes** -- counted pages and opt-in deleted-record filtering
 - **Actor-based connection pooling** -- built on SwiftNIO and PostgresKit
 - **Plain SQL migrations** -- timestamped `.sql` files with `-- migrate:up` / `-- migrate:down` markers
-- **Swift migrations (unreleased)** -- an optional `SpectroMigrations` DSL and a project-owned executable; see the [adoption and deployment guide](docs/MIGRATIONS.md)
+- **Swift migrations** -- an optional `SpectroMigrations` DSL and a project-owned executable; see the [adoption and deployment guide](docs/MIGRATIONS.md)
 - **CLI tool** -- `spectro` binary for database creation, migrations, and status
 - **Swift 6 strict concurrency** -- full `Sendable` compliance across all types
 
 ## Requirements
 
-- Swift 6.0+ (managed via `mise.toml`)
+- Swift 6.0+
 - macOS 13+ or Linux
 - PostgreSQL
 
@@ -58,7 +61,7 @@ A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas,
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.0.0")
+.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.1.0")
 ```
 
 Then add `"SpectroKit"` to your target's dependencies:
@@ -77,18 +80,18 @@ Then add `"SpectroKit"` to your target's dependencies:
 The `spectro` CLI is distributed via [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
-mint install Spectro-ORM/Spectro
+mint install Spectro-ORM/Spectro@2.1.0
 ```
 
 Pin a version in your `Mintfile`:
 
 ```
-Spectro-ORM/Spectro@2.0.0
+Spectro-ORM/Spectro@2.1.0
 ```
 
-For existing applications, read the [2.0 upgrade guide](docs/UPGRADING-2.0.md) and [release notes](CHANGELOG.md) before updating.
+For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).
 
-The Swift migration DSL and project launcher are **unreleased**. The 2.0.0 package and Mint pin above provide the published SQL workflow. To try Swift migrations from this checkout, follow the [local dependency and CLI setup](docs/MIGRATIONS.md#set-up-a-target).
+This branch prepares **2.1.0**; the versioned installation examples require its release tag to be published. Before publication, use the [local dependency and CLI setup](docs/MIGRATIONS.md#set-up-a-target). `spectro --version` reports the CLI version.
 
 ## Quick Start
 

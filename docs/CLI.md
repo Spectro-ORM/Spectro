@@ -1,6 +1,6 @@
 # CLI reference
 
-The Swift migration workflow described here is **unreleased**. Build the CLI from this checkout and use its `SpectroMigrations` product; the published 2.0.0 CLI supports the existing SQL workflow. See [installation](../README.md#installation) and [Swift target setup](MIGRATIONS.md#set-up-a-target).
+This reference describes **Spectro 2.1.0**, including Swift migrations and the existing SQL workflow. Until the 2.1.0 release is published, build the CLI from this checkout. See [installation](../README.md#installation), [Swift target setup](MIGRATIONS.md#set-up-a-target), and the [browsable DocC guides](../Documentation/README.md).
 
 ## Choose a workflow
 
@@ -18,6 +18,7 @@ The compiled executable can run from any working directory. It does not need `.s
 
 | Command | Behavior |
 |---|---|
+| `spectro --version` | Print the CLI version. |
 | `spectro database create <name>` | Create a PostgreSQL database. |
 | `spectro database drop <name>` | Confirm and drop a database; `--force` skips the prompt. |
 | `spectro migrate init --target MyAppMigrations` | Create the Swift migration scaffold and descriptor; print the target to add to `Package.swift`. |

@@ -1,3 +1,4 @@
+/// Combines migration steps, including deterministic conditionals and loops, into a plan.
 @resultBuilder
 public enum MigrationBuilder {
     public static func buildExpression<S: MigrationStep>(_ expression: S) -> MigrationPlan { expression.migrationPlan }
@@ -11,4 +12,3 @@ public enum MigrationBuilder {
         MigrationPlan(components.flatMap(\.operations))
     }
 }
-

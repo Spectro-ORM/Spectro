@@ -1,5 +1,14 @@
 # Spectro ORM - Current Sprint
 
+## DocC website and 2.1.0 preparation — COMPLETE (2026-10-05)
+
+- [x] Add linked guides and curated API catalogs for Spectro, SpectroMigrations, and SpectroCommon, following ESW's merged DocC structure.
+- [x] Add a reproducible local website build and a hosted CI documentation check.
+- [x] Update release notes, installation pins, upgrade guidance, and `spectro --version` for 2.1.0.
+- [x] Build with DocC warnings treated as errors, inspect the rendered website, and run focused CLI/library checks.
+
+Verification: all 13 authored guides and three curated API collections render in the merged archive. Safari review covered the landing page, guides, API navigation, cross-library links, and symbol filtering. All 27 focused tests pass; `spectro --version` reports 2.1.0. Documentation links, shell examples, archive references, output guards, and CI YAML checks pass. The builder stages catalogs without inherited hidden flags so DocC cannot silently omit guides from this worktree. Version 2.1.0 is prepared locally; hosted CI, merge, and publication remain pending.
+
 ## Swift migration distribution and DSL — COMPLETE (2026-10-05)
 
 - [x] Verify main, origin/main, and the 2.0.0 tag resolve to b13c41c.

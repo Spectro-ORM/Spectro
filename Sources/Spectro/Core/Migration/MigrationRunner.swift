@@ -3,6 +3,10 @@ import Foundation
 import SpectroCommon
 
 /// Shared migration lifecycle. The session lock spans discovery and all selected transactions.
+///
+/// Use a direct or session-pooled PostgreSQL connection. Each migration and its
+/// ledger update share a transaction; earlier successful migrations stay committed
+/// if a later migration fails. See <doc:SQLMigrations>.
 public final class MigrationRunner: Sendable {
     private let connection: DatabaseConnection
     private let sources: [MigrationSource]
@@ -10,6 +14,10 @@ public final class MigrationRunner: Sendable {
     private let lockTimeout: Duration
     internal static let lockKey: Int = 0x5350454354524F
 
+    /// Creates a runner over SQL directories and prepared definitions.
+    ///
+    /// The timeout bounds waiting for the migration advisory lock, separately
+    /// from connection acquisition and SQL execution.
     public init(connection: DatabaseConnection, sources: [MigrationSource], lockTimeout: Duration = .seconds(30)) {
         self.connection = connection
         self.sources = sources
@@ -24,6 +32,7 @@ public final class MigrationRunner: Sendable {
         self.lockTimeout = lockTimeout
     }
 
+    /// Creates tracking objects while holding the migration session lock.
     public func ensureMigrationTableExists() async throws {
         try await withLockedSession { session in
             try await self.ensureMigrationTableExists(using: session)
@@ -49,6 +58,7 @@ public final class MigrationRunner: Sendable {
         try await session.execute(createTableSql)
     }
 
+    /// Reads ledger records without creating tracking objects on a fresh database.
     public func getMigrationStatus() async throws -> [MigrationRecord] {
         try await getMigrationStatus(using: connection)
     }
@@ -90,6 +100,7 @@ public final class MigrationRunner: Sendable {
         }
     }
 
+    /// Applies pending migrations in ascending full-ID order under the session lock.
     public func runMigrations() async throws {
         try await withLockedSession { session in
             // Legacy files are still loaded only when selected, preserving the 2.0 API.
@@ -113,6 +124,11 @@ public final class MigrationRunner: Sendable {
         }
     }
 
+    /// Rolls back completed migrations in descending full-ID order.
+    ///
+    /// The selected batch is checked for missing or irreversible history before
+    /// execution. `nil` selects all completed migrations; zero is a no-op and
+    /// negative values are invalid. Schema rollback does not restore deleted rows.
     public func runRollback(steps: Int? = nil) async throws {
         guard steps == nil || steps! >= 0 else {
             throw SpectroError.invalidParameter(name: "steps", value: String(steps!), reason: "Must be nonnegative")

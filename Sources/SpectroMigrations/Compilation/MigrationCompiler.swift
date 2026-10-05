@@ -4,6 +4,11 @@ import SpectroCommon
 
 /// Compiles a value plan without connecting to PostgreSQL.
 public enum MigrationCompiler {
+    /// Compiles one historical declaration into validated PostgreSQL and rollback.
+    ///
+    /// The body is evaluated once. Validation checks plan structure and statement
+    /// boundaries; PostgreSQL validates SQL syntax and schema references at execution.
+    /// - Throws: A planning error for an invalid ID, operation, or rollback definition.
     public static func prepare<M: Migration>(_ migration: M) throws -> PreparedMigration {
         try prepare(id: M.id, plan: migration.change)
     }

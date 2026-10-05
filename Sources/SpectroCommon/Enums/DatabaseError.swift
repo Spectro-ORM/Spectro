@@ -1,5 +1,6 @@
 import Foundation
 
+/// Errors reported while creating or dropping PostgreSQL databases.
 public enum DatabaseError: LocalizedError {
     case alreadyExists(String)
     case insufficientPrivileges(String)

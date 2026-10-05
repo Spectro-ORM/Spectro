@@ -1,6 +1,6 @@
 # Swift migrations
 
-This is an additive, **unreleased** feature built from Spectro 2.0.0. It adds the optional **SpectroMigrations** product. Existing SpectroKit applications and SQL migration directories retain their API and workflow.
+Spectro **2.1.0** adds the optional **SpectroMigrations** product. Existing SpectroKit applications and SQL migration directories retain their API and workflow. This branch prepares the release; before publication, use the local setup below. The same material is available as linked guides and API reference in the [DocC website](../Documentation/README.md).
 
 Your application owns a compiled migration executable. The installed spectro CLI scaffolds files and launches that executable through SwiftPM during development. Production runs the built executable directly. Keep the app and migration target in the same package and commit Package.resolved so they use the same dependency versions.
 
@@ -17,13 +17,24 @@ For every command and option, see the [CLI reference](CLI.md).
 
 ## Set up a target
 
-For this checkout, a consumer package can use a local dependency:
+For the 2.1.0 release, add the package dependency and install the matching CLI:
+
+~~~swift
+.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.1.0")
+~~~
+
+~~~sh
+mint install Spectro-ORM/Spectro@2.1.0
+spectro --version
+~~~
+
+Before the release tag is published, a consumer package can use a local dependency:
 
 ~~~swift
 .package(name: "Spectro", path: "../Spectro")
 ~~~
 
-The published 2.0.0 CLI does not include this workflow. Build the CLI from this checkout and put the resulting executable on your shell's path. This example uses an external cache to keep generated artifacts outside the source checkout:
+For local development, build the CLI from this checkout and put the resulting executable on your shell's path. The 2.0.0 CLI does not include this workflow. This example uses an external cache to keep generated artifacts outside the source checkout:
 
 ~~~sh
 # Run from this Spectro checkout.
@@ -340,7 +351,7 @@ The [IssueTracker example](../Examples/IssueTracker/README.md) adds a compiled S
 
 | Symptom | What to check |
 |---|---|
-| `migrate init` or `plan` is unknown | Build the CLI from this checkout. The released 2.0.0 CLI does not include these commands. |
+| `migrate init` or `plan` is unknown | Use the 2.1 CLI and check `spectro --version`; before publication, build it from this checkout. The 2.0 CLI does not include these commands. |
 | `No Swift migrations configured in this package` | Run `init` in the application package and keep `.spectro.json` beside its `Package.swift`. Discovery stops at the nearest package boundary. |
 | SwiftPM cannot find the migration product | Add the executable target printed by `init` to `Package.swift`; match its product name to `.spectro.json`. |
 | A generated declaration is absent from `plan` | Add its instance to `MigrationRegistry` in `Migrations.swift`. Source files are not registered automatically. |

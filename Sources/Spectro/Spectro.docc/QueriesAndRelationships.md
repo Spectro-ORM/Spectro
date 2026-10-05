@@ -1,0 +1,67 @@
+# Queries and relationships
+
+Compose immutable queries and choose between joined reads and relationship preloading.
+
+## Overview
+
+### Build a query
+
+```swift
+let query = repo.query(User.self)
+    .where { $0.name == "Alice" }
+    .orderBy({ $0.createdAt }, .desc)
+
+let users = try await query.limit(20).all()
+let count = try await query.count()
+let first = try await query.first()
+```
+
+``Query`` is a value type. Filtering, ordering, and limiting return a new query; terminal methods execute it. Use `firstOrFail()` when absence should throw, and `page(size:page:)` for a ``Page`` with items, total count, and navigation metadata. Page numbers start at one.
+
+The query builder binds values separately from SQL text. Use the API's typed fields for filters, ordering, grouping, and aggregates.
+
+### Declare a relationship
+
+```swift
+@Schema("users")
+struct User {
+    @ID var id: UUID
+    @Column var name: String
+    @Timestamp var createdAt: Date
+    @HasMany var posts: [Post]
+}
+
+@Schema("posts")
+struct Post {
+    @ID var id: UUID
+    @Column var title: String
+    @ForeignKey var userId: UUID
+    @BelongsTo var user: User?
+}
+```
+
+``ForeignKey`` describes the stored key, while ``HasMany``, ``HasOne``, ``BelongsTo``, and ``ManyToMany`` describe loading relationships. Create actual foreign-key constraints and indexes through migrations.
+
+### Preload related records
+
+```swift
+let users = try await repo.query(User.self)
+    .orderBy({ $0.name }, .asc)
+    .preload(\.$posts)
+    .all()
+```
+
+Use the projected relationship key path, such as `\.$posts`. Preloading batches related records for the selected parents instead of issuing one query per parent. Supply `foreignKey:` when the field does not follow the naming convention. Chain preloads to load multiple relationships.
+
+### Return typed joined models
+
+```swift
+let postsWithUsers: [(Post, User?)] = try await repo.query(Post.self)
+    .leftJoinAndExecute(User.self, on: { $0.left.userId == $0.right.id })
+```
+
+Each side has its own column projection. A missing right-side row is `nil`; a present row that cannot decode throws. Typed left joins require a nonnullable primary key on the optional side to distinguish absence.
+
+Model-returning right joins cannot represent an absent main model and throw. Reverse the query and use a left join when you need to retain all rows from the other table. Self joins and repeated tables require aliases and are not supported by typed joined execution.
+
+Query operations also work on the repository supplied to a transaction. See <doc:TransactionsAndConfiguration>.

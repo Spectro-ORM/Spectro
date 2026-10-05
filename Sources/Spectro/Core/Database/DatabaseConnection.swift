@@ -293,6 +293,10 @@ public actor DatabaseConnection {
 
 // MARK: - DatabaseConfiguration
 
+/// Connection credentials, pool sizing, and optional TLS settings for PostgreSQL.
+///
+/// Pass a value to ``Spectro/Spectro/init(configuration:)`` or a database connection.
+/// See <doc:TransactionsAndConfiguration> for environment loading and lifecycle.
 public struct DatabaseConfiguration: Sendable {
     public let hostname: String
     public let port: Int

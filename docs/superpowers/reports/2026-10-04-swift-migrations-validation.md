@@ -30,7 +30,7 @@ MigrationManager retains its public initializer, defaults, method signatures, Mi
 
 The SQL statement parser changed only after focused tests reproduced incorrect handling of quoted identifiers, escape strings, nested comments, and bind parameters. The legacy SQL migration and CLI suites remain green.
 
-A 2.1.0 release is proposed because the public surface is additive. No version tag or publication is part of this implementation.
+The user approved preparing 2.1.0 because the public surface is additive. Installation pins, release notes, upgrade guidance, and CLI version metadata now use 2.1.0. No version tag or publication is part of this implementation.
 
 ## Decisions recorded during execution
 
@@ -61,3 +61,23 @@ All work remains on codex/migrations-design. Main and the published 2.0.0 tag ar
 Updated the README, migration guide, [complete CLI reference](../../CLI.md), IssueTracker instructions, and changelog. Source changes are limited to ArgumentParser help metadata: workflow selection, initialization and explicit registration, generation behavior, preview order/options, rollback defaults, environment configuration, and command examples.
 
 Built the launcher and the separate release-mode consumer on macOS/Swift 6.4. All 27 focused DSL/command/launcher tests passed. All 37 help invocations passed with an invalid database port and absent credentials, covering launcher help, configured project forwarding, help aliases, and the directly invoked executable. Rendered output was inspected for paragraph wrapping and option descriptions. Local documentation links, anchors, and fences passed validation; all 22 shell example blocks parsed with `bash -n`.
+
+## DocC website and 2.1.0 preparation — 2026-10-05
+
+Added an ESW-style merged DocC website for Spectro, SpectroMigrations, and SpectroCommon. The 13 authored guides cover ORM setup, schemas, queries, transactions, SQL migrations, Swift declarations, rollback, legacy SQL adoption, commands, configuration, deployment, troubleshooting, and shared migration values. Public migration types and operations have documentation comments and curated API topics. The [documentation index](../../../Documentation/README.md) describes local builds and static hosting; the [2.1 upgrade guide](../../UPGRADING-2.1.md) explains the additive update and optional adoption.
+
+The build script uses native SwiftPM and compiles test modules without running them before symbol extraction. This avoids the selected Xcode 27 beta's private Clang-header extraction failure and supplies the generated test module visited by Swift 6.4. A filesystem-specific failure was also reproduced: inherited macOS hidden flags caused DocC to silently omit authored Markdown. Staging catalog contents without those flags restores the guides. The builder now checks authored landing pages and article output before replacing the previous archive.
+
+| Check | Result |
+|---|---|
+| `python3 scripts/build_docs.py` on macOS / Swift 6.4 | All three catalogs converted with `--warnings-as-errors --analyze`; merged successfully with no DocC warnings or errors |
+| Authored content | All 13 guides and three module abstracts/curated topic groups are present |
+| Rendered reference destinations | 3,726 DocC references point to existing pages, including cross-library links |
+| Safari review | Package landing cards, guide layout, API sidebar, Commands and configuration → DatabaseConfiguration, and filtering/opening CreateTable verified |
+| Focused migration library and CLI tests | 27 tests in 6 suites passed |
+| Version and launcher help | Seven invocations passed with an invalid database port and absent credentials; `--version` returned exactly `2.1.0` |
+| Markdown examples | 22 documents checked: balanced fences, 66 local links/anchors, 33 shell blocks parsed, and two JSON blocks validated |
+| Builder checks | Python syntax and help passed; invalid output suffixes and unrelated existing output directories rejected without changes |
+| CI configuration | YAML and all embedded shell steps parsed successfully; DocC check added to the macOS job |
+
+This follow-up changes documentation, the documentation builder/CI, release metadata, and the CLI's version option. It does not change migration execution behavior. Native SwiftPM prints its toolchain deprecation notice; this is separate from DocC diagnostics. The earlier full database and deployment validation remains recorded above; it was not rerun for this documentation/version change. Hosted CI and publication have not run. Main and the published 2.0.0 commit remain unchanged.

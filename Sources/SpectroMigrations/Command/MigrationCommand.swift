@@ -9,7 +9,16 @@ import Glibc
 #endif
 
 /// The entry point for a project's compiled migration executable.
+///
+/// Provides `up`, `down`, `status`, and offline `plan` commands over an explicit
+/// registry. See <doc:CommandsAndConfiguration> and <doc:Deployment>.
 public enum MigrationCommand {
+    /// Parses process arguments, installs termination handling, and exits with the command's status.
+    ///
+    /// - Parameters:
+    ///   - migrations: The complete registered history shipped in this executable.
+    ///   - configuration: A lazy application configuration provider. When omitted,
+    ///     database commands read exported `DB_*` environment variables.
     public static func main(migrations: MigrationRegistry,
                             configuration: (@Sendable () throws -> DatabaseConfiguration)? = nil) async {
         // Linux PID 1 ignores default termination dispositions. These handlers
@@ -22,6 +31,15 @@ public enum MigrationCommand {
     }
 
     /// Returns an exit status instead of terminating the host process.
+    ///
+    /// Help and planning do not load database configuration. This entry point does
+    /// not install process signal handlers; the embedding application owns lifecycle.
+    /// - Parameters:
+    ///   - arguments: Command arguments excluding the executable name.
+    ///   - migrations: The complete registered history.
+    ///   - configuration: Optional lazy database configuration, with credential
+    ///     options applied as overrides while preserving TLS and pool settings.
+    /// - Returns: Zero on success, or a nonzero command exit status.
     public static func run(arguments: [String], migrations: MigrationRegistry,
                            configuration: (@Sendable () throws -> DatabaseConfiguration)? = nil) async -> Int32 {
         if arguments.isEmpty { print(Root.helpMessage()); return 0 }

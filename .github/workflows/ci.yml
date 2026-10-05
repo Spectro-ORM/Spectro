@@ -55,6 +55,14 @@ jobs:
           xcrun --show-sdk-version
           python3 scripts/acceptance.py
 
+      - name: Build and check DocC documentation
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+        run: |
+          python3 scripts/build_docs.py \
+            --scratch-path "$RUNNER_TEMP/spectro-docs-build" \
+            --output "$RUNNER_TEMP/Spectro.doccarchive"
+
       - name: Stop PostgreSQL
         if: always()
         run: |

@@ -3,6 +3,10 @@ import SpectroCommon
 
 /// Loads a migration artifact without opening a database connection.
 public enum MigrationCatalog {
+    /// Loads SQL files and prepared definitions, rejecting duplicate full IDs.
+    ///
+    /// - Returns: The combined history in ascending lexical ID order.
+    /// - Throws: File or planning errors. No database connection is opened.
     public static func load(sources: [MigrationSource]) throws -> [PreparedMigration] {
         var migrations: [PreparedMigration] = []
         var versions = Set<String>()

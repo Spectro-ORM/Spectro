@@ -1,10 +1,17 @@
+/// PostgreSQL column types supported by the declarative migration DSL.
+///
+/// Use ``SQL`` for types outside this vocabulary. Length, precision, and scale
+/// are validated when compiling the plan.
 public enum MigrationColumnType: Sendable {
     case uuid, text, integer, bigint, boolean, timestamptz, jsonb
     case varchar(length: Int)
     case numeric(precision: Int, scale: Int)
 }
 
-/// Literal defaults stay literals; only .sql opts into a trusted SQL expression.
+/// A literal column default or an explicitly trusted PostgreSQL expression.
+///
+/// String, integer, floating-point, and boolean literals are escaped as values.
+/// Only `.sql` inserts an expression; never supply user input to that case.
 public enum MigrationDefault: Sendable, ExpressibleByStringLiteral, ExpressibleByIntegerLiteral,
     ExpressibleByFloatLiteral, ExpressibleByBooleanLiteral {
     case string(String), integer(Int64), floating(Double), boolean(Bool), sql(String)
@@ -15,6 +22,11 @@ public enum MigrationDefault: Sendable, ExpressibleByStringLiteral, ExpressibleB
     public init(booleanLiteral value: Bool) { self = .boolean(value) }
 }
 
+/// An immutable column declaration with optional constraints and a default.
+///
+/// Obtain a value from ``TableDefinitionContext/column(_:_:)`` or
+/// ``AlterTableContext/add(_:_:)``. Each modifier returns a new declaration.
+/// Repeating a modifier is a planning error.
 public struct ColumnDefinition: Sendable {
     internal let name: String
     internal let type: MigrationColumnType
@@ -27,10 +39,22 @@ public struct ColumnDefinition: Sendable {
 
     internal init(name: String, type: MigrationColumnType) { self.name = name; self.type = type }
 
+    /// Makes this the table's primary key column.
     public func primaryKey() -> Self { setting("primaryKey") { $0.primary = true } }
+    /// Rejects null values in the column.
     public func notNull() -> Self { setting("notNull") { $0.required = true } }
+    /// Sets a literal default or a trusted SQL expression.
     public func `default`(_ value: MigrationDefault) -> Self { setting("default") { $0.defaultValue = value } }
 
+    /// Adds a foreign-key constraint without creating an index.
+    ///
+    /// - Parameters:
+    ///   - table: The referenced table name.
+    ///   - schema: The referenced schema, when explicitly qualified.
+    ///   - column: The referenced column; defaults to `id`.
+    ///   - onDelete: The deletion action; defaults to `NO ACTION`.
+    ///   - name: An explicit constraint name, or the owning table and column names
+    ///     joined with `_fkey` by default.
     public func references(_ table: String, schema: String? = nil, column: String = "id",
                            onDelete: ReferenceAction = .noAction, name: String? = nil) -> Self {
         setting("references") { $0.reference = .init(table: table, schema: schema, column: column, action: onDelete, name: name) }
@@ -44,6 +68,9 @@ public struct ColumnDefinition: Sendable {
     }
 }
 
+/// The action PostgreSQL takes when a referenced row is deleted.
+///
+/// `setNull` requires a nullable column; `setDefault` requires a declared default.
 public enum ReferenceAction: String, Sendable {
     case noAction = "NO ACTION"
     case restrict = "RESTRICT"

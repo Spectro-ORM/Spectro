@@ -1,3 +1,4 @@
+/// Creates a named B-tree index with an automatically generated drop for rollback.
 public struct CreateIndex: MigrationStep {
     internal let name: String
     internal let table: String
@@ -7,6 +8,7 @@ public struct CreateIndex: MigrationStep {
     internal var predicate: String?
     internal var issues: [String] = []
 
+    /// Declares an index over one or more column identifiers on the named table.
     public init(_ name: String, on table: String, columns: [String], schema: String? = nil) {
         self.name = name
         self.table = table
@@ -14,6 +16,7 @@ public struct CreateIndex: MigrationStep {
         self.schema = schema
     }
 
+    /// Returns a declaration that enforces uniqueness across the indexed columns.
     public func unique() -> Self {
         var copy = self
         if copy.isUnique { copy.issues.append("Index uniqueness was specified more than once") }
@@ -23,6 +26,9 @@ public struct CreateIndex: MigrationStep {
 
     public var migrationPlan: MigrationPlan { MigrationPlan([.createIndex(self)]) }
 
+    /// Restricts the index to rows matching a trusted PostgreSQL predicate.
+    ///
+    /// The expression is inserted as SQL. Do not pass user input.
     public func whereSQL(_ expression: String) -> Self {
         var copy = self
         if copy.predicate != nil { copy.issues.append("Index predicate was specified more than once") }
