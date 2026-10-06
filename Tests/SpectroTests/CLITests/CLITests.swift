@@ -70,15 +70,14 @@ struct CLITests {
             SELECT pg_sleep(0.3);
             DROP TABLE cli_race;
             """.write(to: migrations.appendingPathComponent("1700000000_race.sql"), atomically: true, encoding: .utf8)
-        let didCreate: Bool = try run(["database", "create", testDB], directory: directory).exitCode == 0
-        try #require(didCreate)
-        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
-        for action in ["up", "down", "up"] {
-            let first = try startMigration(action, directory: directory, log: directory.appendingPathComponent("first.log"))
-            let second = try startMigration(action, directory: directory, log: directory.appendingPathComponent("second.log"))
-            try await finish([first, second])
-            let status = try run(["migrate", "status", "--database", testDB], directory: directory)
-            #expect(status.output.contains(action == "up" ? "1 applied" : "1 pending"), "\(status.output)")
+        try await withDatabase(at: directory) {
+            for action in ["up", "down", "up"] {
+                let first = try startMigration(action, directory: directory, log: directory.appendingPathComponent("first.log"))
+                let second = try startMigration(action, directory: directory, log: directory.appendingPathComponent("second.log"))
+                try await finish([first, second])
+                let status = try await run(["migrate", "status", "--database", testDB], directory: directory)
+                #expect(status.output.contains(action == "up" ? "1 applied" : "1 pending"), "\(status.output)")
+            }
         }
     }
 
@@ -96,49 +95,48 @@ struct CLITests {
             -- migrate:down
             DROP TABLE cli_killed;
             """.write(to: file, atomically: true, encoding: .utf8)
-        let didCreate: Bool = try run(["database", "create", testDB], directory: directory).exitCode == 0
-        try #require(didCreate)
-        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
-        let observer = try DatabaseConnection(configuration: .init(
-            hostname: TestDatabase.hostname, port: TestDatabase.port, username: TestDatabase.username,
-            password: TestDatabase.password, database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
-        ))
-        let runner = try startMigration("up", directory: directory, log: directory.appendingPathComponent("killed.log"))
-        do {
-            var sleeping = false
-            for _ in 0..<300 {
-                sleeping = try await observer.executeQuery(
-                    sql: "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND query LIKE '%spectro_kill_probe%' AND wait_event = 'PgSleep') AS sleeping",
-                    resultMapper: { $0.makeRandomAccess()[data: "sleeping"].bool == true }
-                ).first == true
-                if sleeping { break }
-                try await Task.sleep(for: .milliseconds(10))
-            }
-            try #require(sleeping)
-            let killedSuccessfully = kill(runner.processIdentifier, SIGKILL) == 0
-            try #require(killedSuccessfully)
-            try await waitForExit(runner)
-            #expect(runner.terminationReason == .uncaughtSignal)
-            #expect(runner.terminationStatus == SIGKILL)
-            try """
-                -- migrate:up
-                CREATE TABLE cli_killed (id INT);
-                -- migrate:down
-                DROP TABLE cli_killed;
-                """.write(to: file, atomically: true, encoding: .utf8)
-            let retry = try startMigration("up", directory: directory, log: directory.appendingPathComponent("retry.log"))
-            try await finish([retry])
-            let status = try run(["migrate", "status", "--database", testDB], directory: directory)
-            #expect(status.output.contains("1 applied"))
-        } catch {
-            if runner.isRunning {
-                kill(runner.processIdentifier, SIGKILL)
-                try? await waitForExit(runner)
+        try await withDatabase(at: directory) {
+            let observer = try DatabaseConnection(configuration: .init(
+                hostname: TestDatabase.hostname, port: TestDatabase.port, username: TestDatabase.username,
+                password: TestDatabase.password, database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
+            ))
+            let runner = try startMigration("up", directory: directory, log: directory.appendingPathComponent("killed.log"))
+            do {
+                var sleeping = false
+                for _ in 0..<300 {
+                    sleeping = try await observer.executeQuery(
+                        sql: "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND query LIKE '%spectro_kill_probe%' AND wait_event = 'PgSleep') AS sleeping",
+                        resultMapper: { $0.makeRandomAccess()[data: "sleeping"].bool == true }
+                    ).first == true
+                    if sleeping { break }
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+                try #require(sleeping)
+                let killedSuccessfully = kill(runner.processIdentifier, SIGKILL) == 0
+                try #require(killedSuccessfully)
+                try await waitForExit(runner)
+                #expect(runner.terminationReason == .uncaughtSignal)
+                #expect(runner.terminationStatus == SIGKILL)
+                try """
+                    -- migrate:up
+                    CREATE TABLE cli_killed (id INT);
+                    -- migrate:down
+                    DROP TABLE cli_killed;
+                    """.write(to: file, atomically: true, encoding: .utf8)
+                let retry = try startMigration("up", directory: directory, log: directory.appendingPathComponent("retry.log"))
+                try await finish([retry])
+                let status = try await run(["migrate", "status", "--database", testDB], directory: directory)
+                #expect(status.output.contains("1 applied"))
+            } catch {
+                if runner.isRunning {
+                    kill(runner.processIdentifier, SIGKILL)
+                    try? await waitForExit(runner)
+                }
+                await observer.shutdown()
+                throw error
             }
             await observer.shutdown()
-            throw error
         }
-        await observer.shutdown()
     }
 
     // MARK: - Helpers
@@ -175,7 +173,20 @@ struct CLITests {
         var output: String { stdout + stderr }
     }
 
-    private func run(_ args: [String], env: [String: String]? = nil, directory: URL? = nil) throws -> CLIResult {
+    private func withDatabase(at directory: URL, _ body: () async throws -> Void) async throws {
+        let created = try await run(["database", "create", testDB], directory: directory)
+        try #require(created.exitCode == 0, "\(created.output)")
+        do {
+            try await body()
+        } catch {
+            _ = try? await run(["database", "drop", "--force", testDB], directory: directory)
+            throw error
+        }
+        let dropped = try await run(["database", "drop", "--force", testDB], directory: directory)
+        #expect(dropped.exitCode == 0, "\(dropped.output)")
+    }
+
+    private func run(_ args: [String], env: [String: String]? = nil, directory: URL? = nil) async throws -> CLIResult {
         let path = try spectroBinaryPath()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
@@ -192,21 +203,44 @@ struct CLITests {
         }
         process.environment = environment
 
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+        // File capture cannot fill a pipe while the test waits for termination.
+        let outputDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("spectro-cli-output-\(UUID())")
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+        let stdoutURL = outputDirectory.appendingPathComponent("stdout")
+        let stderrURL = outputDirectory.appendingPathComponent("stderr")
+        FileManager.default.createFile(atPath: stdoutURL.path, contents: nil)
+        FileManager.default.createFile(atPath: stderrURL.path, contents: nil)
+        let stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
+        let stderrHandle = try FileHandle(forWritingTo: stderrURL)
+        defer {
+            try? stdoutHandle.close()
+            try? stderrHandle.close()
+        }
+        process.standardOutput = stdoutHandle
+        process.standardError = stderrHandle
 
         try process.run()
-        process.waitUntilExit()
-
-        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        defer { if process.isRunning { kill(process.processIdentifier, SIGKILL) } }
+        try stdoutHandle.close()
+        try stderrHandle.close()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while process.isRunning && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let timedOut = process.isRunning
+        if timedOut {
+            kill(process.processIdentifier, SIGKILL)
+            try await waitForExit(process)
+        }
+        let stdout = try String(contentsOf: stdoutURL, encoding: .utf8)
+        let stderr = try String(contentsOf: stderrURL, encoding: .utf8)
+        try #require(!timedOut, "CLI timed out: \(args)\n\(stdout)\n\(stderr)")
 
         return CLIResult(
             exitCode: process.terminationStatus,
-            stdout: String(data: stdoutData, encoding: .utf8) ?? "",
-            stderr: String(data: stderrData, encoding: .utf8) ?? ""
+            stdout: stdout,
+            stderr: stderr
         )
     }
 
@@ -215,8 +249,8 @@ struct CLITests {
     // MARK: - Help
 
     @Test("--help shows usage")
-    func helpOutput() throws {
-        let result = try run(["--help"])
+    func helpOutput() async throws {
+        let result = try await run(["--help"])
         #expect(result.exitCode == 0)
         #expect(result.output.contains("USAGE: spectro"))
         #expect(result.output.contains("database"))
@@ -224,8 +258,8 @@ struct CLITests {
     }
 
     @Test("database --help shows subcommands")
-    func databaseHelp() throws {
-        let result = try run(["database", "--help"])
+    func databaseHelp() async throws {
+        let result = try await run(["database", "--help"])
         #expect(result.exitCode == 0)
         #expect(result.output.contains("create"))
         #expect(result.output.contains("drop"))
@@ -234,29 +268,29 @@ struct CLITests {
     // MARK: - Safety Guards
 
     @Test("database drop refuses 'postgres'")
-    func dropRefusesPostgres() throws {
-        let result = try run(["database", "drop", "postgres"])
+    func dropRefusesPostgres() async throws {
+        let result = try await run(["database", "drop", "postgres"])
         #expect(result.exitCode != 0)
         #expect(result.output.contains("Refusing to drop"))
     }
 
     @Test("database create refuses 'postgres'")
-    func createRefusesPostgres() throws {
-        let result = try run(["database", "create", "postgres"])
+    func createRefusesPostgres() async throws {
+        let result = try await run(["database", "create", "postgres"])
         #expect(result.exitCode != 0)
         #expect(result.output.contains("Refusing to create"))
     }
 
     @Test("database drop without name shows usage")
-    func dropRequiresName() throws {
-        let result = try run(["database", "drop"])
+    func dropRequiresName() async throws {
+        let result = try await run(["database", "drop"])
         #expect(result.exitCode != 0)
         #expect(result.output.contains("Database name is required"))
     }
 
     @Test("database create without name shows usage")
-    func createRequiresName() throws {
-        let result = try run(["database", "create"])
+    func createRequiresName() async throws {
+        let result = try await run(["database", "create"])
         #expect(result.exitCode != 0)
         #expect(result.output.contains("Database name is required"))
     }
@@ -264,16 +298,16 @@ struct CLITests {
     // MARK: - SQL Injection Guard
 
     @Test("database create rejects name with special characters")
-    func createRejectsInjection() throws {
-        let result = try run(["database", "create", "foo; DROP TABLE users;--"])
+    func createRejectsInjection() async throws {
+        let result = try await run(["database", "create", "foo; DROP TABLE users;--"])
         #expect(result.exitCode != 0)
         // ValidationError is formatted by ArgumentParser; check for error indicator
         #expect(result.output.contains("Error") || result.output.contains("ValidationError"))
     }
 
     @Test("database drop rejects name with quotes")
-    func dropRejectsQuoteInjection() throws {
-        let result = try run(["database", "drop", "foo\"bar"])
+    func dropRejectsQuoteInjection() async throws {
+        let result = try await run(["database", "drop", "foo\"bar"])
         #expect(result.exitCode != 0)
         #expect(result.output.contains("Error") || result.output.contains("ValidationError"))
     }
@@ -293,70 +327,68 @@ struct CLITests {
             DROP TABLE cli_migration;
             """.write(to: migrations.appendingPathComponent("1700000000_cli.sql"), atomically: true, encoding: .utf8)
 
-        let created = try run(["database", "create", testDB], directory: directory)
-        let didCreate: Bool = created.exitCode == 0
-        try #require(didCreate)
-        defer { _ = try? run(["database", "drop", "--force", testDB], directory: directory) }
-        let initial = try run(["migrate", firstCommand, "--database", testDB], directory: directory)
-        #expect(initial.exitCode == 0, "\(initial.output)")
-        let up = try run(["migrate", "up", "--database", testDB], directory: directory)
-        #expect(up.exitCode == 0, "\(up.output)")
-        // New connections inherit read-only mode. Status must not try to create tracking objects.
-        let control = try DatabaseConnection(configuration: .init(
-            hostname: TestDatabase.hostname, port: TestDatabase.port,
-            username: TestDatabase.username, password: TestDatabase.password,
-            database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
-        ))
-        let applied: CLIResult
-        do {
-            try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" SET default_transaction_read_only = on")
-            applied = try run(["migrate", "status", "--database", testDB], directory: directory)
-            try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
-        } catch {
-            try? await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
+        try await withDatabase(at: directory) {
+            let initial = try await run(["migrate", firstCommand, "--database", testDB], directory: directory)
+            #expect(initial.exitCode == 0, "\(initial.output)")
+            let up = try await run(["migrate", "up", "--database", testDB], directory: directory)
+            #expect(up.exitCode == 0, "\(up.output)")
+            // New connections inherit read-only mode. Status must not try to create tracking objects.
+            let control = try DatabaseConnection(configuration: .init(
+                hostname: TestDatabase.hostname, port: TestDatabase.port,
+                username: TestDatabase.username, password: TestDatabase.password,
+                database: testDB, maxConnectionsPerEventLoop: 1, numberOfThreads: 1
+            ))
+            let applied: CLIResult
+            do {
+                try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" SET default_transaction_read_only = on")
+                applied = try await run(["migrate", "status", "--database", testDB], directory: directory)
+                try await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
+            } catch {
+                try? await control.executeUpdate(sql: "ALTER DATABASE \"\(testDB)\" RESET default_transaction_read_only")
+                await control.shutdown()
+                throw error
+            }
             await control.shutdown()
-            throw error
+            #expect(applied.exitCode == 0)
+            #expect(applied.output.contains("1 applied"))
+            let down = try await run(["migrate", "down", "--step", "1", "--database", testDB], directory: directory)
+            #expect(down.exitCode == 0, "\(down.output)")
+            let pending = try await run(["migrate", "status", "--database", testDB], directory: directory)
+            #expect(pending.exitCode == 0)
+            #expect(pending.output.contains("1 pending"))
         }
-        await control.shutdown()
-        #expect(applied.exitCode == 0)
-        #expect(applied.output.contains("1 applied"))
-        let down = try run(["migrate", "down", "--step", "1", "--database", testDB], directory: directory)
-        #expect(down.exitCode == 0, "\(down.output)")
-        let pending = try run(["migrate", "status", "--database", testDB], directory: directory)
-        #expect(pending.exitCode == 0)
-        #expect(pending.output.contains("1 pending"))
     }
 
     @Test("database create then drop lifecycle")
-    func createAndDropLifecycle() throws {
+    func createAndDropLifecycle() async throws {
         // Create
-        let createResult = try run(["database", "create", testDB])
+        let createResult = try await run(["database", "create", testDB])
         #expect(createResult.exitCode == 0)
         #expect(createResult.output.contains("created successfully"))
 
         // Create again — should say "already exists", not crash
-        let dupeResult = try run(["database", "create", testDB])
+        let dupeResult = try await run(["database", "create", testDB])
         #expect(dupeResult.output.contains("already exists"))
 
         // Drop (--force skips interactive confirmation prompt)
-        let dropResult = try run(["database", "drop", "--force", testDB])
+        let dropResult = try await run(["database", "drop", "--force", testDB])
         #expect(dropResult.exitCode == 0)
         #expect(dropResult.output.contains("dropped successfully"))
 
         // Drop again — should say "does not exist", not crash
-        let dupeDropResult = try run(["database", "drop", "--force", testDB])
+        let dupeDropResult = try await run(["database", "drop", "--force", testDB])
         #expect(dupeDropResult.output.contains("does not exist"))
     }
 
     // MARK: - Positional and Flag Args
 
     @Test("database create works with --database flag too")
-    func createWithFlag() throws {
-        let createResult = try run(["database", "create", "--database", testDB])
+    func createWithFlag() async throws {
+        let createResult = try await run(["database", "create", "--database", testDB])
         #expect(createResult.exitCode == 0)
         #expect(createResult.output.contains("created successfully"))
 
         // Cleanup
-        let _ = try run(["database", "drop", "--force", testDB])
+        let _ = try await run(["database", "drop", "--force", testDB])
     }
 }

@@ -193,7 +193,12 @@ struct SwiftMigrationCLITests {
             Issue.record("Signal did not terminate the child")
             while process.isRunning { try await Task.sleep(for: .milliseconds(10)) }
         }
-        #expect(process.terminationStatus == 128 + number)
+        // Foundation exposes a raw signal number for signal termination;
+        // compare the exit status that a shell observes in either case.
+        let exitStatus = process.terminationReason == .uncaughtSignal
+            ? 128 + process.terminationStatus : process.terminationStatus
+        #expect(exitStatus == 128 + number,
+                "termination reason: \(process.terminationReason), raw status: \(process.terminationStatus)")
         #expect(kill(child, 0) == -1)
     }
 
