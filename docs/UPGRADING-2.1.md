@@ -2,8 +2,6 @@
 
 Spectro 2.1 adds Swift migration declarations and a project-owned migration executable. It is an additive update from 2.0: existing `SpectroKit` consumers need no new product dependency, protocol changes, or database rewrite.
 
-This branch prepares 2.1.0. Version-pinned installation requires the release tag to be published; use a local dependency and checkout-built CLI until then.
-
 ## Keep the SQL workflow
 
 Update the Spectro package constraint to `from: "2.1.0"` and the Mintfile to `Spectro-ORM/Spectro@2.1.0`. Check the installed CLI with `spectro --version`.

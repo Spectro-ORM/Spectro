@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.0 — Unreleased
+## 2.1.0 — 2026-10-06
 
 - Add the optional `SpectroMigrations` product: deterministic Swift declarations, PostgreSQL compilation, explicit registration, reversible schema operations, references/checks, and explicit SQL/irreversible branches.
 - Ship a project-owned migration executable with offline `plan`, lazy database configuration, bundled SQL history, and strict rollback preflight for missing or irreversible history.
@@ -12,7 +12,9 @@
 - Add a merged DocC website with guides and API navigation for Spectro, SpectroMigrations, and SpectroCommon; build and check it with `python3 scripts/build_docs.py`.
 - Report the CLI release version with `spectro --version` and pin installation examples and the Mintfile to 2.1.0.
 
-Existing `SpectroKit` consumers need no additional product dependency or protocol changes. The minor version reflects an additive public surface. This entry prepares the release; the 2.1.0 tag has not been published. See the [upgrade guide](docs/UPGRADING-2.1.md) and [migration guide](docs/MIGRATIONS.md).
+Existing `SpectroKit` consumers need no additional product dependency or protocol changes. The minor version reflects an additive public surface. See the [upgrade guide](docs/UPGRADING-2.1.md) and [migration guide](docs/MIGRATIONS.md).
+
+[Full comparison with 2.0.0](https://github.com/Spectro-ORM/Spectro/compare/2.0.0...2.1.0)
 
 ## 2.0.0 — 2026-10-04
 

@@ -1,6 +1,6 @@
 # CLI reference
 
-This reference describes **Spectro 2.1.0**, including Swift migrations and the existing SQL workflow. Until the 2.1.0 release is published, build the CLI from this checkout. See [installation](../README.md#installation), [Swift target setup](MIGRATIONS.md#set-up-a-target), and the [browsable DocC guides](../Documentation/README.md).
+This reference describes **Spectro 2.1.0**, including Swift migrations and the existing SQL workflow. See [installation](../README.md#installation), [Swift target setup](MIGRATIONS.md#set-up-a-target), and the [browsable DocC guides](../Documentation/README.md).
 
 ## Choose a workflow
 

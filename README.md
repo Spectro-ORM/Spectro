@@ -91,7 +91,7 @@ Spectro-ORM/Spectro@2.1.0
 
 For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).
 
-This branch prepares **2.1.0**; the versioned installation examples require its release tag to be published. Before publication, use the [local dependency and CLI setup](docs/MIGRATIONS.md#set-up-a-target). `spectro --version` reports the CLI version.
+`spectro --version` reports the CLI version. For development against a local checkout, use the [local dependency and CLI setup](docs/MIGRATIONS.md#set-up-a-target).
 
 ## Quick Start
 

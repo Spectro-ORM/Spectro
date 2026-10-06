@@ -6,7 +6,7 @@ Resolve setup, planning, configuration, and artifact problems.
 
 ### The CLI does not recognize init or plan
 
-Run `spectro --version` and use the 2.1 CLI. The published 2.0 CLI supports the SQL workflow only. For an unpublished checkout, build its `spectro` product and put the reported binary directory on your shell's `PATH`.
+Run `spectro --version` and use the 2.1 CLI. The 2.0 CLI supports the SQL workflow only. For development against a local checkout, build its `spectro` product and put the reported binary directory on your shell's `PATH`.
 
 ### No Swift migrations are configured
 

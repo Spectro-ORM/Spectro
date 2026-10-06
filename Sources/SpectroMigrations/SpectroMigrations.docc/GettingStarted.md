@@ -19,7 +19,7 @@ mint install Spectro-ORM/Spectro@2.1.0
 spectro migrate init --target MyAppMigrations
 ```
 
-When working from an unpublished checkout, use a local package dependency, `.package(name: "Spectro", path: "../Spectro")`, and build that checkout's `spectro` product instead. The published 2.0 CLI does not contain these commands.
+For development against a local checkout, use a local package dependency, `.package(name: "Spectro", path: "../Spectro")`, and build that checkout's `spectro` product instead. The 2.0 CLI does not contain these commands.
 
 Initialization creates `.spectro.json` and the following target layout:
 
