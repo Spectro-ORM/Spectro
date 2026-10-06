@@ -137,7 +137,7 @@ jobs:
       - name: Import Swift signing keys
         shell: bash
         run: |
-          curl --fail --silent --show-error --location --retry 3 https://www.swift.org/keys/all-keys.asc | gpg --batch --import
+          curl --compressed --fail --silent --show-error --location --retry 3 https://www.swift.org/keys/all-keys.asc | gpg --batch --import
       - name: Setup Swift
         uses: swift-actions/setup-swift@364295d9c23900ce04d4e5cc708387921b4e50f9
         with:
