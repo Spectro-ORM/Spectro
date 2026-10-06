@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f0f4fa" />
+    <meta
+      name="description"
+      content="Spectro is a PostgreSQL ORM for Swift, inspired by Ecto: property-wrapper schemas, immutable queries, changesets, and preloading. Part of the Roost family."
+    />
+    <title>Spectro. — Your data, in plain Swift.</title>
+    <link rel="canonical" href="https://roost-framework.github.io/Spectro/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spectro. — Your data, in plain Swift." />
+    <meta
+      property="og:description"
+      content="A PostgreSQL ORM for Swift, inspired by Ecto."
+    />
+    <meta property="og:url" content="https://roost-framework.github.io/Spectro/" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/svg+xml" href="assets/mark.svg" />
+    <link
+      rel="preload"
+      href="assets/fonts/manrope.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header wrap">
+      <a class="brand" href="./" aria-label="Spectro home"
+        ><img src="assets/mark.svg" width="42" height="42" alt="" /><span
+          >spectro<span class="accent">.</span></span
+        ></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#example">Example</a>
+        <a href="#install">Install</a>
+        <a class="nav-github" href="https://github.com/roost-framework/Spectro"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <a class="development" href="#family"
+            ><span class="status-dot" aria-hidden="true"></span> Part of the
+            Roost family <span aria-hidden="true">↓</span></a
+          >
+          <h1 id="hero-title">
+            Your data,<br />in plain Swift<span class="accent">.</span>
+          </h1>
+          <p class="hero-description">A PostgreSQL ORM that feels like Swift.</p>
+          <p class="hero-detail">
+            Inspired by Ecto. Property-wrapper schemas, queries you can reuse,
+            and changesets that check input before it reaches your database.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#install"
+              >Get started <span aria-hidden="true">↓</span></a
+            >
+            <a class="text-link" href="https://github.com/roost-framework/Spectro"
+              >Explore the source <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-note">Spectro 2.1 · Swift 6 · PostgreSQL</p>
+        </div>
+        <div class="hello-window code-window">
+          <div class="window-bar">
+            <span
+              ><span class="file-dot" aria-hidden="true"></span> Users.swift</span
+            ><button
+              class="copy-button"
+              data-copy="hero-code"
+              hidden
+              aria-label="Copy the Spectro schema and query"
+            >
+              Copy <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <pre
+            tabindex="0"
+            aria-label="A Spectro schema and query"
+          ><code id="hero-code"><span class="syn-key">import</span> Spectro
+
+<span class="syn-attribute">@Schema</span>(<span class="syn-string">"users"</span>)
+<span class="syn-key">struct</span> <span class="syn-type">User</span> {
+    <span class="syn-attribute">@ID</span> <span class="syn-key">var</span> id: <span class="syn-type">UUID</span>
+    <span class="syn-attribute">@Column</span> <span class="syn-key">var</span> name: <span class="syn-type">String</span>
+    <span class="syn-attribute">@Column</span> <span class="syn-key">var</span> email: <span class="syn-type">String</span>
+}
+
+<span class="syn-key">let</span> users = <span class="syn-key">try await</span> db.<span class="syn-call">repository</span>()
+    .<span class="syn-call">query</span>(<span class="syn-type">User</span>.<span class="syn-key">self</span>)
+    .<span class="syn-call">where</span> { $0.email.<span class="syn-call">endsWith</span>(<span class="syn-string">"@acme.io"</span>) }
+    .<span class="syn-call">orderBy</span>({ $0.name }, .asc)
+    .<span class="syn-call">all</span>()</code></pre>
+          <div class="response-line">
+            <span>ORDER BY name ASC</span><span class="response-status">3 rows</span>
+          </div>
+          <div class="hello-result">
+            <img src="assets/mark.svg" width="42" height="42" alt="" /><span
+              >Ada, Grace, Linus<span class="accent">.</span></span
+            >
+          </div>
+          <p class="window-caption">Typed rows, in the order you asked for.</p>
+        </div>
+      </section>
+      <section id="family" class="stack-strip wrap" aria-label="The Roost family">
+        <p class="stack-intro">
+          Part of Roost.<br /><strong>One Swift stack.</strong>
+        </p>
+        <a href="https://roost-framework.github.io/swift-roost/"
+          ><span class="stack-name"
+            >Roost <span aria-hidden="true">↗</span></span
+          ><span class="stack-detail"
+            >The web framework <span class="version">2.0</span></span
+          ></a
+        >
+        <a href="https://roost-framework.github.io/Nexus/"
+          ><span class="stack-name"
+            >Nexus <span aria-hidden="true">↗</span></span
+          ><span class="stack-detail"
+            >HTTP &amp; routing <span class="version">2.0</span></span
+          ></a
+        >
+        <a href="https://roost-framework.github.io/ESW/"
+          ><span class="stack-name">ESW <span aria-hidden="true">↗</span></span
+          ><span class="stack-detail"
+            >HTML, compiled to Swift <span class="version">1.5</span></span
+          ></a
+        >
+      </section>
+      <section
+        id="features"
+        class="framework-section wrap section-space"
+        aria-labelledby="features-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">WHAT YOU GET</p>
+          <h2 id="features-title">
+            Typed from table<br />to result<span class="accent">.</span>
+          </h2>
+        </div>
+        <div class="framework-content">
+          <div class="principles">
+            <article>
+              <h3>Schemas from one macro.</h3>
+              <p>
+                @Schema generates initializers, row mapping, and Encodable
+                conformance at compile time from plain property-wrapper structs.
+              </p>
+            </article>
+            <article>
+              <h3>Queries are values.</h3>
+              <p>
+                Every where, join, and orderBy returns a new query, so you can
+                branch one and reuse it.
+              </p>
+            </article>
+          </div>
+          <div class="principles">
+            <article>
+              <h3>Changesets check the door.</h3>
+              <p>
+                Cast only the fields you permit, validate them, and insert or
+                update inside a transaction with clear errors.
+              </p>
+            </article>
+            <article>
+              <h3>Preloading without N+1.</h3>
+              <p>
+                Batch-load HasMany, HasOne, BelongsTo, and ManyToMany with one
+                extra query per relationship, not one per row.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section
+        id="example"
+        class="workflow-section section-space"
+        aria-labelledby="example-title"
+      >
+        <div class="wrap">
+          <div class="section-heading heading-row">
+            <div>
+              <p class="eyebrow">A CLOSER LOOK</p>
+              <h2 id="example-title">
+                Model, query,<br />commit<span class="accent">.</span>
+              </h2>
+            </div>
+            <p>Three short files. The whole idea.</p>
+          </div>
+          <div class="code-tour">
+            <div class="tour-tabs" aria-label="Explore Spectro code">
+              <a class="tour-tab" href="#schema-panel" data-panel="schema-panel"
+                ><span>01</span> The schema</a
+              >
+              <a class="tour-tab" href="#query-panel" data-panel="query-panel"
+                ><span>02</span> The query</a
+              >
+              <a
+                class="tour-tab"
+                href="#transaction-panel"
+                data-panel="transaction-panel"
+                ><span>03</span> The transaction</a
+              >
+            </div>
+            <section id="schema-panel" class="tour-panel">
+              <div class="tour-explanation">
+                <h3>Columns you can see.</h3>
+                <p>
+                  Property wrappers name every column and relationship. The
+                  struct is the schema; there is no second file to keep in step.
+                </p>
+                <span class="source-label">Models.swift</span>
+              </div>
+              <div class="tour-code">
+                <button
+                  class="copy-button light-copy"
+                  data-copy="schema-code"
+                  hidden
+                  aria-label="Copy schema example"
+                >
+                  Copy
+                </button>
+                <pre tabindex="0"><code id="schema-code">@Schema(<span class="light-string">"users"</span>)
+<span class="light-key">struct</span> User {
+    @ID <span class="light-key">var</span> id: UUID
+    @Column <span class="light-key">var</span> name: String
+    @Column <span class="light-key">var</span> email: String
+    @Timestamp <span class="light-key">var</span> createdAt: Date
+    @HasMany <span class="light-key">var</span> posts: [Post]
+}
+
+@Schema(<span class="light-string">"posts"</span>)
+<span class="light-key">struct</span> Post {
+    @ID <span class="light-key">var</span> id: UUID
+    @Column <span class="light-key">var</span> title: String
+    @Column <span class="light-key">var</span> views: Int
+    @ForeignKey <span class="light-key">var</span> userId: UUID
+    @BelongsTo <span class="light-key">var</span> user: User?
+    @Timestamp <span class="light-key">var</span> createdAt: Date
+}</code></pre>
+              </div>
+            </section>
+            <section id="query-panel" class="tour-panel">
+              <div class="tour-explanation">
+                <h3>Queries are values.</h3>
+                <p>
+                  Build a query once, then page it, sum it, or preload its
+                  relationships. Preloading costs one query per relationship,
+                  not one per row.
+                </p>
+                <span class="source-label">Queries.swift</span>
+              </div>
+              <div class="tour-code">
+                <button
+                  class="copy-button light-copy"
+                  data-copy="query-code"
+                  hidden
+                  aria-label="Copy query example"
+                >
+                  Copy
+                </button>
+                <pre tabindex="0"><code id="query-code"><span class="light-key">let</span> db = <span class="light-key">try</span> Spectro(username: <span class="light-string">"postgres"</span>, password: <span class="light-string">"postgres"</span>, database: <span class="light-string">"app"</span>)
+<span class="light-key">let</span> repo = db.repository()
+
+<span class="light-key">let</span> popular = repo.query(Post.<span class="light-key">self</span>)
+    .where { $0.views &gt;= 1_000 &amp;&amp; $0.title.iContains(<span class="light-string">"swift"</span>) }
+
+<span class="light-key">let</span> page = <span class="light-key">try await</span> popular
+    .orderBy({ $0.createdAt }, .desc)
+    .page(size: 20, page: 1)
+<span class="light-key">let</span> totalViews = <span class="light-key">try await</span> popular.sum { $0.views }
+
+<span class="light-key">let</span> writers = <span class="light-key">try await</span> repo.query(User.<span class="light-key">self</span>)
+    .orderBy({ $0.name }, .asc)
+    .preload(\.$posts)
+    .limit(10)
+    .all()</code></pre>
+              </div>
+            </section>
+            <section id="transaction-panel" class="tour-panel">
+              <div class="tour-explanation">
+                <h3>All or nothing.</h3>
+                <p>
+                  The changeset keeps only permitted fields, so "admin" is
+                  dropped. When the blank rename fails, the transaction rolls
+                  back and Ada is never committed.
+                </p>
+                <span class="source-label">Signup.swift</span>
+              </div>
+              <div class="tour-code">
+                <button
+                  class="copy-button light-copy"
+                  data-copy="transaction-code"
+                  hidden
+                  aria-label="Copy transaction example"
+                >
+                  Copy
+                </button>
+                <pre tabindex="0"><code id="transaction-code"><span class="light-key">let</span> signup = Changeset&lt;User&gt;.cast(<span class="light-key">nil</span>,
+    params: [<span class="light-string">"name"</span>: <span class="light-string">"Ada"</span>, <span class="light-string">"email"</span>: <span class="light-string">"ada@acme.io"</span>, <span class="light-string">"admin"</span>: <span class="light-key">true</span>],
+    permitted: [<span class="light-string">"name"</span>, <span class="light-string">"email"</span>])
+    .validateRequired([<span class="light-string">"name"</span>, <span class="light-string">"email"</span>])
+    .validateFormat(<span class="light-string">"email"</span>, pattern: <span class="light-string">#"^.+@.+\..+$"#</span>)
+
+<span class="light-key">try await</span> db.transaction { tx <span class="light-key">in</span>
+    <span class="light-key">let</span> ada = <span class="light-key">try await</span> tx.insert(signup)
+    <span class="light-key">let</span> rename = Changeset.cast(ada, params: [<span class="light-string">"name"</span>: <span class="light-string">""</span>], permitted: [<span class="light-string">"name"</span>])
+        .validateRequired([<span class="light-string">"name"</span>])
+    _ = <span class="light-key">try await</span> tx.update(rename)
+}</code></pre>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+      <section
+        id="install"
+        class="wrap section-space"
+        aria-labelledby="install-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">INSTALL</p>
+          <h2 id="install-title">
+            Add it to<br />your package<span class="accent">.</span>
+          </h2>
+        </div>
+        <div class="workflow-grid">
+          <div class="workflow-copy">
+            <h3>Two lines in Package.swift.</h3>
+            <p>
+              Add the package, depend on SpectroKit, then import Spectro in your
+              code. The spectro command runs migrations; install it with Mint.
+            </p>
+            <p>Swift 6.0+ · macOS 13+ or Linux · PostgreSQL</p>
+            <a class="text-link" href="https://github.com/roost-framework/Spectro#readme"
+              >Read the guide <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="install-windows">
+            <div class="code-window terminal-window">
+              <div class="window-bar">
+                <span
+                  ><span class="file-dot" aria-hidden="true"></span>
+                  Package.swift</span
+                ><button
+                  class="copy-button"
+                  data-copy="install-code"
+                  hidden
+                  aria-label="Copy package dependency"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                aria-label="Spectro package dependency"
+              ><code id="install-code">.<span class="syn-call">package</span>(url: <span class="syn-string">"https://github.com/roost-framework/Spectro.git"</span>, from: <span class="syn-string">"2.1.0"</span>)
+
+<span class="syn-comment">// in your target's dependencies</span>
+.<span class="syn-call">product</span>(name: <span class="syn-string">"SpectroKit"</span>, package: <span class="syn-string">"Spectro"</span>)</code></pre>
+            </div>
+            <div class="code-window terminal-window">
+              <div class="window-bar">
+                <span
+                  ><span class="file-dot" aria-hidden="true"></span>
+                  Terminal</span
+                ><button
+                  class="copy-button"
+                  data-copy="cli-code"
+                  hidden
+                  aria-label="Copy Mint install command"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                aria-label="Install the spectro command"
+              ><code id="cli-code">mint install roost-framework/Spectro@2.1.0</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="closing wrap" aria-label="Explore Spectro on GitHub">
+        <p>Keep your data<br />close to your code<span class="accent">.</span></p>
+        <a class="button" href="https://github.com/roost-framework/Spectro"
+          >Explore Spectro on GitHub <span aria-hidden="true">↗</span></a
+        >
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a class="brand" href="./" aria-label="Spectro home"
+        ><span>spectro<span class="accent">.</span></span></a
+      >
+      <p>Typed queries. Written in Swift.</p>
+      <div>
+        <a href="https://github.com/roost-framework/Spectro">GitHub ↗</a
+        ><a href="https://roost-framework.github.io/swift-roost/">Roost ↗</a
+        ><a href="#install">Install</a><a href="#main">Back to top ↑</a>
+      </div>
+    </footer>
+    <p
+      id="site-announcement"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    ></p>
+  </body>
+</html>

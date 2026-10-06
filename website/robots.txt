@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://roost-framework.github.io/Spectro/sitemap.xml
