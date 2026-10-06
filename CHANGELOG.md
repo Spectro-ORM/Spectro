@@ -5,6 +5,7 @@
 - Add the optional `SpectroMigrations` product: deterministic Swift declarations, PostgreSQL compilation, explicit registration, reversible schema operations, references/checks, and explicit SQL/irreversible branches.
 - Ship a project-owned migration executable with offline `plan`, lazy database configuration, bundled SQL history, and strict rollback preflight for missing or irreversible history.
 - Add `spectro migrate init`, configured Swift migration generation, and project-aware command forwarding with exit-status and signal propagation.
+- Stop package discovery at the filesystem root so SQL migration commands also work outside Swift packages on macOS.
 - Share the existing session lock and transactional engine through `MigrationRunner`; retain `MigrationManager` and the legacy SQL CLI APIs.
 - Fix statement splitting for quoted identifiers, PostgreSQL escape strings, bind parameters, and nested comments.
 - Add copied release-artifact and compiler-free Linux deployment acceptance, plus a compiled migration scenario in the HTTP example.

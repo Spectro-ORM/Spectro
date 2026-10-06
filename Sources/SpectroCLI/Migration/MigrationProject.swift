@@ -15,6 +15,9 @@ struct MigrationProject: Sendable {
         var current = start.resolvingSymlinksInPath().standardizedFileURL
         while true {
             if FileManager.default.fileExists(atPath: current.appendingPathComponent("Package.swift").path) { return current }
+            // Foundation can append /.. when removing the last component of /.
+            // Stop explicitly so SQL-only projects never walk above the root.
+            guard current.path != "/" else { return nil }
             let parent = current.deletingLastPathComponent()
             if parent.path == current.path { return nil }
             current = parent

@@ -83,6 +83,7 @@ let package = Package(
                 "SpectroCommon",
                 "Spectro",
                 "SpectroMigrations",
+                "SpectroCLI",
             ],
             path: "Tests/SpectroTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
