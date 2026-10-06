@@ -15,7 +15,7 @@ Use Spectro 2.1.0 or later in `Package.swift`:
 Install the matching development CLI with Mint, then run initialization from your application package:
 
 ```sh
-mint install roost-framework/Spectro@2.1.0
+mint install roost-framework/Spectro@2.1.1
 spectro migrate init --target MyAppMigrations
 ```
 

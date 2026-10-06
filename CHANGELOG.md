@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1 — 2026-10-06
+
+- Depend on swift-syntax through its canonical `swiftlang/swift-syntax` URL. Packages that also depend on ESW no longer get SwiftPM's conflicting-identity warning, which future SwiftPM versions turn into an error.
+- Report 2.1.1 from `spectro --version` and pin the Mint installation examples and the Mintfile to 2.1.1.
+
+[Full comparison with 2.1.0](https://github.com/roost-framework/Spectro/compare/2.1.0...2.1.1)
+
 ## 2.1.0 — 2026-10-06
 
 - Add the optional `SpectroMigrations` product: deterministic Swift declarations, PostgreSQL compilation, explicit registration, reversible schema operations, references/checks, and explicit SQL/irreversible branches.

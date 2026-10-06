@@ -80,13 +80,13 @@ Then add `"SpectroKit"` to your target's dependencies:
 The `spectro` CLI is distributed via [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
-mint install roost-framework/Spectro@2.1.0
+mint install roost-framework/Spectro@2.1.1
 ```
 
 Pin a version in your `Mintfile`:
 
 ```
-roost-framework/Spectro@2.1.0
+roost-framework/Spectro@2.1.1
 ```
 
 For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).
