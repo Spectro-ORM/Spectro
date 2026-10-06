@@ -948,7 +948,7 @@ swift build --product spectro
 | [async-kit](https://github.com/vapor/async-kit) | 1.15+ | Connection pool infrastructure |
 | [swift-nio](https://github.com/apple/swift-nio) | 2.34+ | Async I/O runtime |
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | 1.2+ | CLI argument parsing |
-| [swift-syntax](https://github.com/apple/swift-syntax) | 600+ | `@Schema` macro implementation |
+| [swift-syntax](https://github.com/swiftlang/swift-syntax) | 600+ | `@Schema` macro implementation |
 
 ## Testing
 
