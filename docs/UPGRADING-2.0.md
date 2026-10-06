@@ -1,6 +1,6 @@
 # Upgrading to Spectro 2.0
 
-Update your Swift package dependency to `from: "2.0.0"` and any Mint pin to `Spectro-ORM/Spectro@2.0.0`. The package products remain `SpectroKit`, `SpectroCommon`, and `spectro`; library code continues to use `import Spectro`.
+Update your Swift package dependency to `from: "2.0.0"` and any Mint pin to `roost-framework/Spectro@2.0.0`. The package products remain `SpectroKit`, `SpectroCommon`, and `spectro`; library code continues to use `import Spectro`.
 
 ## Custom repository implementations
 

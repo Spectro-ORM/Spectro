@@ -61,7 +61,7 @@ Browse guides and searchable API reference with the [DocC documentation](Documen
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.1.0")
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.1.0")
 ```
 
 Then add `"SpectroKit"` to your target's dependencies:
@@ -80,13 +80,13 @@ Then add `"SpectroKit"` to your target's dependencies:
 The `spectro` CLI is distributed via [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
-mint install Spectro-ORM/Spectro@2.1.0
+mint install roost-framework/Spectro@2.1.0
 ```
 
 Pin a version in your `Mintfile`:
 
 ```
-Spectro-ORM/Spectro@2.1.0
+roost-framework/Spectro@2.1.0
 ```
 
 For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).

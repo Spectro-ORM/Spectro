@@ -20,11 +20,11 @@ For every command and option, see the [CLI reference](CLI.md).
 For the 2.1.0 release, add the package dependency and install the matching CLI:
 
 ~~~swift
-.package(url: "https://github.com/Spectro-ORM/Spectro.git", from: "2.1.0")
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.1.0")
 ~~~
 
 ~~~sh
-mint install Spectro-ORM/Spectro@2.1.0
+mint install roost-framework/Spectro@2.1.0
 spectro --version
 ~~~
 

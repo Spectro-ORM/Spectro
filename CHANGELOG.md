@@ -15,7 +15,7 @@
 
 Existing `SpectroKit` consumers need no additional product dependency or protocol changes. The minor version reflects an additive public surface. See the [upgrade guide](docs/UPGRADING-2.1.md) and [migration guide](docs/MIGRATIONS.md).
 
-[Full comparison with 2.0.0](https://github.com/Spectro-ORM/Spectro/compare/2.0.0...2.1.0)
+[Full comparison with 2.0.0](https://github.com/roost-framework/Spectro/compare/2.0.0...2.1.0)
 
 ## 2.0.0 — 2026-10-04
 
@@ -55,4 +55,4 @@ See the [upgrade guide](docs/UPGRADING-2.0.md) for migration examples and operat
 - The core suite contains 368 tests, including concurrent migration processes, cancellation, and macro-defined soft deletes. CI runs PostgreSQL-backed tests on macOS and Linux.
 - Building the IssueTracker acceptance application requires Swift 6.3+ and an Xcode 26.3+ SDK on a compatible host (macOS 15.6+ for Xcode 26.3); its package deployment target is macOS 14. Its pinned Peregrine 1.2.0 dependency currently prevents that example from building on Linux; Spectro's core Linux support is unaffected.
 
-[Full comparison with 1.2.0](https://github.com/Spectro-ORM/Spectro/compare/1.2.0...2.0.0)
+[Full comparison with 1.2.0](https://github.com/roost-framework/Spectro/compare/1.2.0...2.0.0)

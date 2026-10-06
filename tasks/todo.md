@@ -40,7 +40,7 @@ Implementation remains on the isolated branch. See the [validation report](../do
 
 Verification: 368 tests in 35 suites pass on macOS/Swift 6.4, including the macro soft-delete regression; real HTTP acceptance passes both scenarios. Independent review has no remaining findings. Documentation links and `git diff --check` pass. The sampled process-wait hang and its fix affect the CLI test harness; production migration behavior is unchanged by that repair.
 
-Publication gates: pass hosted macOS/Linux CI and HTTP acceptance, merge to main, verify the merged commit, then publish tag/release 2.0.0. The [GitHub release](https://github.com/Spectro-ORM/Spectro/releases/tag/2.0.0) records the published version; preparation alone does not establish publication or hosted CI success.
+Publication gates: pass hosted macOS/Linux CI and HTTP acceptance, merge to main, verify the merged commit, then publish tag/release 2.0.0. The [GitHub release](https://github.com/roost-framework/Spectro/releases/tag/2.0.0) records the published version; preparation alone does not establish publication or hosted CI success.
 
 ## Acceptance build-cache repair — COMPLETE (2026-10-04)
 

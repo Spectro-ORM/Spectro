@@ -4,7 +4,7 @@ Spectro 2.1 adds Swift migration declarations and a project-owned migration exec
 
 ## Keep the SQL workflow
 
-Update the Spectro package constraint to `from: "2.1.0"` and the Mintfile to `Spectro-ORM/Spectro@2.1.0`. Check the installed CLI with `spectro --version`.
+Update the Spectro package constraint to `from: "2.1.0"` and the Mintfile to `roost-framework/Spectro@2.1.0`. Check the installed CLI with `spectro --version`.
 
 Without `.spectro.json`, the CLI continues to use `Sources/Migrations` relative to the current directory. `MigrationManager` keeps its API. Keep existing filenames and contents unchanged. SQL migrations still require direct or session-pooled connections and transaction-compatible SQL.
 
