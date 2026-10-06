@@ -37,7 +37,9 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 5
-        run: swift test --jobs 4
+        run: |
+          swift build --build-tests --jobs 4
+          python3 scripts/run_tests_with_diagnostics.py -- swift test --skip-build --jobs 4
 
       - name: Run copied migration artifact acceptance
         run: python3 scripts/migrations_acceptance.py
