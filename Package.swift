@@ -18,7 +18,10 @@ let package = Package(
         // Libraries that only use SpectroKit can depend on Spectro with `traits: []` to skip these tools' dependencies.
         .trait(name: "CLI", description: "The spectro command and its ArgumentParser and Noora dependencies."),
         .trait(name: "Migrations", description: "SpectroMigrations' command-line entry point and its ArgumentParser dependency."),
-        .default(enabledTraits: ["CLI", "Migrations"]),
+        // Without it, the spectro command prints plain text and Noora is not fetched.
+        .trait(name: "RichTerminal", description: "Colors, spinners, prompts, and tables in the spectro command (Noora).",
+               enabledTraits: ["CLI"]),
+        .default(enabledTraits: ["CLI", "Migrations", "RichTerminal"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/postgres-kit.git", from: "2.7.0"),
@@ -78,7 +81,7 @@ let package = Package(
                 "SpectroCommon",
                 "Spectro",
                 .product(name: "ArgumentParser", package: "swift-argument-parser", condition: .when(traits: ["CLI"])),
-                .product(name: "Noora", package: "Noora", condition: .when(traits: ["CLI"])),
+                .product(name: "Noora", package: "Noora", condition: .when(traits: ["RichTerminal"])),
             ],
             path: "Sources/SpectroCLI",
             swiftSettings: [.swiftLanguageMode(.v6)]

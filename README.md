@@ -61,13 +61,19 @@ Browse guides and searchable API reference with the [DocC documentation](Documen
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.2.0")
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.3.0")
 ```
 
-The `CLI` and `Migrations` traits, on by default, bring the dependencies of the `spectro` command and `SpectroMigrations`. If you only use SpectroKit, disable them so SwiftPM never fetches ArgumentParser or Noora:
+The `CLI`, `RichTerminal`, and `Migrations` traits, on by default, bring the dependencies of the `spectro` command (ArgumentParser, plus Noora for colors, spinners, prompts, and tables) and `SpectroMigrations`. If you only use SpectroKit, disable them so SwiftPM never fetches ArgumentParser or Noora:
 
 ```swift
-.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.2.0", traits: [])
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.3.0", traits: [])
+```
+
+To build the `spectro` command from your dependencies without Noora, as Roost does for `roost spectro`, enable only `CLI`; the command then prints plain text:
+
+```swift
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.3.0", traits: ["CLI"])
 ```
 
 Then add `"SpectroKit"` to your target's dependencies:
@@ -86,13 +92,13 @@ Then add `"SpectroKit"` to your target's dependencies:
 The `spectro` CLI is distributed via [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
-mint install roost-framework/Spectro@2.2.0
+mint install roost-framework/Spectro@2.3.0
 ```
 
 Pin a version in your `Mintfile`:
 
 ```
-roost-framework/Spectro@2.2.0
+roost-framework/Spectro@2.3.0
 ```
 
 For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 — 2026-10-07
+
+- Put Noora behind a new `RichTerminal` package trait, on by default with `CLI` and `Migrations`. With only `CLI` enabled, the `spectro` command prints plain text: alerts with their takeaways, progress steps, a `[y/N]` confirmation, and aligned tables. Roost enables only `CLI`, so `roost spectro` keeps working without fetching Noora.
+- CI builds the `spectro` command without Noora.
+- Report 2.3.0 from `spectro --version` and pin the Mint installation examples and the Mintfile to 2.3.0.
+
+[Full comparison with 2.2.0](https://github.com/roost-framework/Spectro/compare/2.2.0...2.3.0)
+
 ## 2.2.0 — 2026-10-07
 
 - Put the `spectro` command's dependencies (ArgumentParser and Noora) behind the `CLI` package trait, and SpectroMigrations' ArgumentParser dependency behind the `Migrations` trait. Both are on by default. A package that only uses SpectroKit, such as a framework built on Spectro, can depend on it with `traits: []`; SwiftPM then skips fetching those tools' dependencies.

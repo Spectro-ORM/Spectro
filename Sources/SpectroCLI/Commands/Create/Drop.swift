@@ -1,6 +1,8 @@
 import ArgumentParser
 import NIOCore
+#if RichTerminal
 @preconcurrency import Noora
+#endif
 import PostgresKit
 @preconcurrency import Spectro
 import SpectroCommon

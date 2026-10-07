@@ -1,6 +1,9 @@
+#if RichTerminal
 @preconcurrency import Noora
+#endif
 
 enum SpectroUI {
+    #if RichTerminal
     static let noora = Noora(theme: Theme(
         primary: "6C63FF",
         secondary: "A78BFA",
@@ -12,6 +15,9 @@ enum SpectroUI {
         selectedRowText: "FFFFFF",
         selectedRowBackground: "4C1D95"
     ))
+    #else
+    static let noora = PlainTerminal()
+    #endif
 
     // MARK: - Fun Messages
 

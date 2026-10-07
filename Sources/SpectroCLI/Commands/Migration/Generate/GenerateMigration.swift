@@ -1,5 +1,7 @@
 import ArgumentParser
+#if RichTerminal
 @preconcurrency import Noora
+#endif
 import Spectro
 
 struct GenerateMigration: AsyncParsableCommand {
