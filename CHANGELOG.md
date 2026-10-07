@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0 — 2026-10-07
+
+- Put the `spectro` command's dependencies (ArgumentParser and Noora) behind the `CLI` package trait, and SpectroMigrations' ArgumentParser dependency behind the `Migrations` trait. Both are on by default. A package that only uses SpectroKit, such as a framework built on Spectro, can depend on it with `traits: []`; SwiftPM then skips fetching those tools' dependencies.
+- Require Swift 6.1 (swift-tools-version 6.1), the first version with package traits. Swift 6.0 projects keep resolving Spectro 2.1.x.
+- Report 2.2.0 from `spectro --version` and pin the Mint installation examples and the Mintfile to 2.2.0.
+
+[Full comparison with 2.1.1](https://github.com/roost-framework/Spectro/compare/2.1.1...2.2.0)
+
 ## 2.1.1 — 2026-10-06
 
 - Depend on swift-syntax through its canonical `swiftlang/swift-syntax` URL. Packages that also depend on ESW no longer get SwiftPM's conflicting-identity warning, which future SwiftPM versions turn into an error.

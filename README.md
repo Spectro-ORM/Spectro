@@ -50,7 +50,7 @@ Browse guides and searchable API reference with the [DocC documentation](Documen
 
 ## Requirements
 
-- Swift 6.0+
+- Swift 6.1+
 - macOS 13+ or Linux
 - PostgreSQL
 
@@ -61,7 +61,13 @@ Browse guides and searchable API reference with the [DocC documentation](Documen
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.1.0")
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.2.0")
+```
+
+The `CLI` and `Migrations` traits, on by default, bring the dependencies of the `spectro` command and `SpectroMigrations`. If you only use SpectroKit, disable them so SwiftPM never fetches ArgumentParser or Noora:
+
+```swift
+.package(url: "https://github.com/roost-framework/Spectro.git", from: "2.2.0", traits: [])
 ```
 
 Then add `"SpectroKit"` to your target's dependencies:
@@ -80,13 +86,13 @@ Then add `"SpectroKit"` to your target's dependencies:
 The `spectro` CLI is distributed via [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
-mint install roost-framework/Spectro@2.1.1
+mint install roost-framework/Spectro@2.2.0
 ```
 
 Pin a version in your `Mintfile`:
 
 ```
-roost-framework/Spectro@2.1.1
+roost-framework/Spectro@2.2.0
 ```
 
 For existing applications, read the [2.1 upgrade guide](docs/UPGRADING-2.1.md) and [release notes](CHANGELOG.md). Applications updating from 1.x should also follow the [2.0 upgrade guide](docs/UPGRADING-2.0.md).
@@ -787,7 +793,7 @@ The default lock wait is 30 seconds and can be configured with `spectro.migratio
 
 ### Application acceptance
 
-The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On a compatible macOS build host with Swift 6.3+ and an Xcode 26.3+ SDK selected (macOS 15.6+ for Xcode 26.3), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. These toolchain requirements come from Peregrine's dependencies; the example package's deployment target is macOS 14. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.0; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
+The [IssueTracker example](Examples/IssueTracker/README.md) uses Peregrine and Spectro's public APIs against a real PostgreSQL database. On a compatible macOS build host with Swift 6.3+ and an Xcode 26.3+ SDK selected (macOS 15.6+ for Xcode 26.3), run `python3 scripts/acceptance.py` to build the example and verify HTTP joins, changesets, transaction rollback, competing writes, populated-database upgrades, and restart persistence. These toolchain requirements come from Peregrine's dependencies; the example package's deployment target is macOS 14. The command creates and removes its own database. Spectro's core test suite still runs on Linux/Swift 6.1; the pinned Peregrine release currently blocks Linux HTTP builds with an Apple-only logging import.
 
 ### Generate a SQL migration
 
@@ -920,7 +926,7 @@ A supplied `tlsConfiguration` requires TLS and retains its certificate verificat
 
 ### Prerequisites
 
-- Swift 6.0+ (install via [mise](https://mise.jdx.dev/), `brew install swift`, or [swiftly](https://swift-server.github.io/swiftly/))
+- Swift 6.1+ (install via [mise](https://mise.jdx.dev/), `brew install swift`, or [swiftly](https://swift-server.github.io/swiftly/))
 - PostgreSQL (local install or Docker)
 
 ### Build

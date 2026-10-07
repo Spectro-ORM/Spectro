@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 
 import PackageDescription
 import CompilerPluginSupport
@@ -13,6 +13,12 @@ let package = Package(
         .library(name: "SpectroKit", targets: ["Spectro"]),
         .library(name: "SpectroMigrations", targets: ["SpectroMigrations"]),
         .executable(name: "spectro", targets: ["SpectroCLI"]),
+    ],
+    traits: [
+        // Libraries that only use SpectroKit can depend on Spectro with `traits: []` to skip these tools' dependencies.
+        .trait(name: "CLI", description: "The spectro command and its ArgumentParser and Noora dependencies."),
+        .trait(name: "Migrations", description: "SpectroMigrations' command-line entry point and its ArgumentParser dependency."),
+        .default(enabledTraits: ["CLI", "Migrations"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/postgres-kit.git", from: "2.7.0"),
@@ -56,7 +62,7 @@ let package = Package(
             name: "SpectroMigrations",
             dependencies: [
                 "Spectro", "SpectroCommon",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "ArgumentParser", package: "swift-argument-parser", condition: .when(traits: ["Migrations"])),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -71,8 +77,8 @@ let package = Package(
             dependencies: [
                 "SpectroCommon",
                 "Spectro",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "Noora", package: "Noora"),
+                .product(name: "ArgumentParser", package: "swift-argument-parser", condition: .when(traits: ["CLI"])),
+                .product(name: "Noora", package: "Noora", condition: .when(traits: ["CLI"])),
             ],
             path: "Sources/SpectroCLI",
             swiftSettings: [.swiftLanguageMode(.v6)]
