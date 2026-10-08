@@ -2,14 +2,14 @@
 
 A Swift ORM for PostgreSQL, inspired by Elixir's Ecto. Property-wrapper schemas, a composable query builder, actor-based concurrency, and a CLI for migrations.
 
-Browse guides and searchable API reference with the [DocC documentation](Documentation/README.md). Build the site locally with `python3 scripts/build_docs.py`.
+Browse guides and searchable API reference in the [documentation for the latest release](https://roost-framework.github.io/Spectro/docs/latest/), or [pick a release](https://roost-framework.github.io/Spectro/docs/). The [DocC documentation index](Documentation/README.md) covers this checkout; build it locally with `python3 scripts/build_docs.py`.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Documentation website](Documentation/README.md)
+- [Documentation website](https://roost-framework.github.io/Spectro/docs/latest/)
 - [Upgrading to 2.1](docs/UPGRADING-2.1.md)
 - [Quick Start](#quick-start)
 - [Schema Definition](#schema-definition)
