@@ -5,12 +5,21 @@ on:
     branches: [main]
     paths:
       - "website/**"
+      - "scripts/publish_docs.py"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "website/**"
+      - "scripts/publish_docs.py"
       - ".github/workflows/pages.yml"
+  # A published release builds its documentation, attaches it, and redeploys from main.
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach documentation for before deploying
+        required: false
 
 permissions:
   contents: read
@@ -29,10 +38,46 @@ jobs:
           node --check website/script.js
           python3 website/check.py
 
+  # Each release carries its documentation as an asset, so deploys never rebuild old versions.
+  release-docs:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+    runs-on: macos-26
+    permissions:
+      contents: write
+      actions: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+      # Older tags may lack the script or its options; build them with the current one.
+      - name: Use the default branch's documentation script
+        run: git show "origin/${{ github.event.repository.default_branch }}:scripts/build_docs.py" > scripts/build_docs.py
+      - name: Select the newest installed Xcode
+        run: echo "DEVELOPER_DIR=$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Require a Swift 6.3 or newer DocC toolchain
+        run: swift --version | grep -Eq "Swift version 6\.[3-9]"
+      - name: Build the documentation archive
+        run: python3 scripts/build_docs.py --output "$RUNNER_TEMP/Spectro.doccarchive"
+      - name: Attach it to the release
+        run: |
+          ditto -c -k --keepParent "$RUNNER_TEMP/Spectro.doccarchive" "$RUNNER_TEMP/Spectro-$TAG.doccarchive.zip"
+          gh release upload "$TAG" "$RUNNER_TEMP/Spectro-$TAG.doccarchive.zip" --clobber
+      # The github-pages environment deploys from main, so a release run hands off to it.
+      - name: Redeploy the site from main
+        if: github.event_name == 'release'
+        run: gh workflow run pages.yml --ref "${{ github.event.repository.default_branch }}"
+
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: check
-    runs-on: ubuntu-latest
+    needs: [check, release-docs]
+    if: >-
+      always() && needs.check.result == 'success'
+      && (needs.release-docs.result == 'success' || needs.release-docs.result == 'skipped')
+      && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: macos-26
     permissions:
       contents: read
       pages: write
@@ -48,6 +93,12 @@ jobs:
           mkdir -p _site
           cp website/index.html website/404.html website/style.css website/script.js website/robots.txt website/sitemap.xml website/.nojekyll _site/
           cp -R website/assets _site/assets
+      - name: Select the newest installed Xcode
+        run: echo "DEVELOPER_DIR=$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Publish each release's documentation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish_docs.py _site --repository "$GITHUB_REPOSITORY"
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
